@@ -1,0 +1,1 @@
+Extracted from libqxt library SHA: 9068e83def488d9e3bcdb734cf242ce64c024214
