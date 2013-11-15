@@ -1,7 +1,8 @@
-#ifndef MAILPOP3_P_H
 /****************************************************************************
-** Copyright (c) 2006 - 2011, the LibQxt project.
+** Copyright (c) 2006 - 2011, the LibQxt project <http://libqxt.org>
 ** See the Qxt AUTHORS file for a list of authors and copyright holders.
+** Copyright (c) 2013 Debao Zhang <hello@debao.me>
+**
 ** All rights reserved.
 **
 ** Redistribution and use in source and binary forms, with or without
@@ -26,14 +27,12 @@
 ** (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 **
-** <http://libqxt.org>  <foundation@libqxt.org>
 *****************************************************************************/
 
+#ifndef MAILPOP3_P_H
 #define MAILPOP3_P_H
 
-
 #include "mailpop3.h"
-
 #include <QQueue>
 
 class QxtPop3Private : public QObject, public QxtPrivate<QxtPop3>
