@@ -32,12 +32,12 @@
 #ifndef MAILSMTP_H
 #define MAILSMTP_H
 
+#include "mailglobal.h"
+#include "mailmessage.h"
+#include <QScopedPointer>
 #include <QObject>
 #include <QHostAddress>
 #include <QString>
-
-#include "mailglobal.h"
-#include "mailmessage.h"
 
 class QTcpSocket;
 #ifndef QT_NO_OPENSSL
@@ -73,6 +73,7 @@ public:
     };
 
     QxtSmtp(QObject* parent = 0);
+    ~QxtSmtp();
 
     QByteArray username() const;
     void setUsername(const QByteArray& name);
@@ -126,7 +127,8 @@ Q_SIGNALS:
     void disconnected();
 
 private:
-    QXT_DECLARE_PRIVATE(QxtSmtp)
+    Q_DECLARE_PRIVATE(QxtSmtp)
+    QScopedPointer<QxtSmtpPrivate> d_ptr;
 };
 
 #endif // MAILSMTP_H

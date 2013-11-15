@@ -32,7 +32,6 @@
 #ifndef MAILPOP3_H
 #define MAILPOP3_H
 
-
 #include "mailglobal.h"
 #include "mailmessage.h"
 #include "mailpop3reply.h"
@@ -46,6 +45,7 @@
 #include <QHash>
 #include <QList>
 #include <QPair>
+#include <QScopedPointer>
 
 class QTcpSocket;
 #ifndef QT_NO_OPENSSL
@@ -58,6 +58,7 @@ class Q_MAIL_EXPORT QxtPop3 : public QObject
     Q_OBJECT
 public:
     explicit QxtPop3(QObject* parent = 0);
+    ~QxtPop3();
 
     QByteArray username() const;
     void setUsername(const QByteArray& name);
@@ -105,8 +106,9 @@ Q_SIGNALS:
     void disconnected();
 
 private:
-    QXT_DECLARE_PRIVATE(QxtPop3)
+    Q_DECLARE_PRIVATE(QxtPop3)
     Q_DISABLE_COPY(QxtPop3)
+    QScopedPointer<QxtPop3Private> d_ptr;
 };
 
 #endif // MAILPOP3_H

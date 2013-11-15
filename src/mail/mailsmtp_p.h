@@ -38,13 +38,14 @@
 #include <QList>
 #include <QPair>
 
-class QxtSmtpPrivate : public QObject, public QxtPrivate<QxtSmtp>
+class QxtSmtpPrivate : public QObject
 {
     Q_OBJECT
 public:
-    QxtSmtpPrivate();
+    QxtSmtpPrivate(QxtSmtp *q);
 
-    QXT_DECLARE_PUBLIC(QxtSmtp)
+    Q_DECLARE_PUBLIC(QxtSmtp)
+    QxtSmtp *q_ptr;
 
     enum SmtpState
     {

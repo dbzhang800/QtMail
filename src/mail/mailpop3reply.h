@@ -35,6 +35,7 @@
 #include "mailglobal.h"
 
 #include <QObject>
+#include <QSharedPointer>
 
 class QxtPop3ReplyPrivate;
 class QxtPop3ReplyImpl;
@@ -115,7 +116,8 @@ protected:
 
 private:
     QByteArray dialog(QByteArray received);
-    QXT_DECLARE_PRIVATE(QxtPop3Reply)
+    Q_DECLARE_PRIVATE(QxtPop3Reply)
+    QScopedPointer<QxtPop3ReplyPrivate> d_ptr;
     Q_DISABLE_COPY(QxtPop3Reply)
 };
 

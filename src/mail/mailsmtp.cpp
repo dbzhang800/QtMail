@@ -36,8 +36,6 @@
  * \brief The QxtSmtp class implements the SMTP protocol for sending email
  */
 
-
-
 #include "mailsmtp.h"
 #include "mailsmtp_p.h"
 #include "mailhmac.h"
@@ -48,73 +46,83 @@
 #    include <QSslSocket>
 #endif
 
-QxtSmtpPrivate::QxtSmtpPrivate() : QObject(0), allowedAuthTypes(QxtSmtp::AuthPlain | QxtSmtp::AuthLogin | QxtSmtp::AuthCramMD5)
+QxtSmtpPrivate::QxtSmtpPrivate(QxtSmtp *q)
+    : QObject(0), q_ptr(q)
+    , allowedAuthTypes(QxtSmtp::AuthPlain | QxtSmtp::AuthLogin | QxtSmtp::AuthCramMD5)
 {
     // empty ctor
 }
 
-QxtSmtp::QxtSmtp(QObject* parent) : QObject(parent)
+QxtSmtp::QxtSmtp(QObject* parent)
+    : QObject(parent), d_ptr(new QxtSmtpPrivate(this))
 {
-    QXT_INIT_PRIVATE(QxtSmtp);
-    qxt_d().state = QxtSmtpPrivate::Disconnected;
-    qxt_d().nextID = 0;
+    d_ptr->state = QxtSmtpPrivate::Disconnected;
+    d_ptr->nextID = 0;
 #ifndef QT_NO_OPENSSL
-    qxt_d().socket = new QSslSocket(this);
+    d_ptr->socket = new QSslSocket(this);
     QObject::connect(socket(), SIGNAL(encrypted()), this, SIGNAL(encrypted()));
     //QObject::connect(socket(), SIGNAL(encrypted()), &qxt_d(), SLOT(ehlo()));
 #else
-    qxt_d().socket = new QTcpSocket(this);
+    d_func()->socket = new QTcpSocket(this);
 #endif
     QObject::connect(socket(), SIGNAL(connected()), this, SIGNAL(connected()));
     QObject::connect(socket(), SIGNAL(disconnected()), this, SIGNAL(disconnected()));
-    QObject::connect(socket(), SIGNAL(error(QAbstractSocket::SocketError)), &qxt_d(), SLOT(socketError(QAbstractSocket::SocketError)));
-    QObject::connect(this, SIGNAL(authenticated()), &qxt_d(), SLOT(sendNext()));
-    QObject::connect(socket(), SIGNAL(readyRead()), &qxt_d(), SLOT(socketRead()));
+    QObject::connect(socket(), SIGNAL(error(QAbstractSocket::SocketError)), d_func(), SLOT(socketError(QAbstractSocket::SocketError)));
+    QObject::connect(this, SIGNAL(authenticated()), d_func(), SLOT(sendNext()));
+    QObject::connect(socket(), SIGNAL(readyRead()), d_func(), SLOT(socketRead()));
+}
+
+/*!
+ * Destroy the object.
+ */
+QxtSmtp::~QxtSmtp()
+{
+
 }
 
 QByteArray QxtSmtp::username() const
 {
-    return qxt_d().username;
+    return d_func()->username;
 }
 
 void QxtSmtp::setUsername(const QByteArray& username)
 {
-    qxt_d().username = username;
+    d_func()->username = username;
 }
 
 QByteArray QxtSmtp::password() const
 {
-    return qxt_d().password;
+    return d_func()->password;
 }
 
 void QxtSmtp::setPassword(const QByteArray& password)
 {
-    qxt_d().password = password;
+    d_func()->password = password;
 }
 
 int QxtSmtp::send(const QxtMailMessage& message)
 {
-    int messageID = ++qxt_d().nextID;
-    qxt_d().pending.append(qMakePair(messageID, message));
-    if (qxt_d().state == QxtSmtpPrivate::Waiting)
-        qxt_d().sendNext();
+    int messageID = ++d_func()->nextID;
+    d_func()->pending.append(qMakePair(messageID, message));
+    if (d_func()->state == QxtSmtpPrivate::Waiting)
+        d_func()->sendNext();
     return messageID;
 }
 
 int QxtSmtp::pendingMessages() const
 {
-    return qxt_d().pending.count();
+    return d_func()->pending.count();
 }
 
 QTcpSocket* QxtSmtp::socket() const
 {
-    return qxt_d().socket;
+    return d_func()->socket;
 }
 
 void QxtSmtp::connectToHost(const QString& hostName, quint16 port)
 {
-    qxt_d().useSecure = false;
-    qxt_d().state = QxtSmtpPrivate::StartState;
+    d_func()->useSecure = false;
+    d_func()->state = QxtSmtpPrivate::StartState;
     socket()->connectToHost(hostName, port);
 }
 
@@ -130,24 +138,24 @@ void QxtSmtp::disconnectFromHost()
 
 bool QxtSmtp::startTlsDisabled() const
 {
-    return qxt_d().disableStartTLS;
+    return d_func()->disableStartTLS;
 }
 
 void QxtSmtp::setStartTlsDisabled(bool disable)
 {
-    qxt_d().disableStartTLS = disable;
+    d_func()->disableStartTLS = disable;
 }
 
 #ifndef QT_NO_OPENSSL
 QSslSocket* QxtSmtp::sslSocket() const
 {
-    return qxt_d().socket;
+    return d_func()->socket;
 }
 
 void QxtSmtp::connectToSecureHost(const QString& hostName, quint16 port)
 {
-    qxt_d().useSecure = true;
-    qxt_d().state = QxtSmtpPrivate::StartState;
+    d_func()->useSecure = true;
+    d_func()->state = QxtSmtpPrivate::StartState;
     sslSocket()->connectToHostEncrypted(hostName, port);
 }
 
@@ -159,38 +167,38 @@ void QxtSmtp::connectToSecureHost(const QHostAddress& address, quint16 port)
 
 bool QxtSmtp::hasExtension(const QString& extension)
 {
-    return qxt_d().extensions.contains(extension);
+    return d_func()->extensions.contains(extension);
 }
 
 QString QxtSmtp::extensionData(const QString& extension)
 {
-    return qxt_d().extensions[extension];
+    return d_func()->extensions[extension];
 }
 
 bool QxtSmtp::isAuthMethodEnabled(AuthType type) const
 {
-    return qxt_d().allowedAuthTypes & type;
+    return d_func()->allowedAuthTypes & type;
 }
 
 void QxtSmtp::setAuthMethodEnabled(AuthType type, bool enable)
 {
     if(enable)
-        qxt_d().allowedAuthTypes |= type;
+        d_func()->allowedAuthTypes |= type;
     else
-        qxt_d().allowedAuthTypes &= ~type;
+        d_func()->allowedAuthTypes &= ~type;
 }
 
 void QxtSmtpPrivate::socketError(QAbstractSocket::SocketError err)
 {
     if (err == QAbstractSocket::SslHandshakeFailedError)
     {
-        emit qxt_p().encryptionFailed();
-        emit qxt_p().encryptionFailed( socket->errorString().toLatin1() );
+        emit q_func()->encryptionFailed();
+        emit q_func()->encryptionFailed( socket->errorString().toLatin1() );
     }
     else if (state == StartState)
     {
-        emit qxt_p().connectionFailed();
-        emit qxt_p().connectionFailed( socket->errorString().toLatin1() );
+        emit q_func()->connectionFailed();
+        emit q_func()->connectionFailed( socket->errorString().toLatin1() );
     }
 }
 
@@ -210,8 +218,8 @@ void QxtSmtpPrivate::socketRead()
             if (code[0] != '2')
             {
                 state = Disconnected;
-                emit qxt_p().connectionFailed();
-                emit qxt_p().connectionFailed(line);
+                emit q_func()->connectionFailed();
+                emit q_func()->connectionFailed(line);
                 socket->disconnectFromHost();
             }
             else
@@ -247,21 +255,21 @@ void QxtSmtpPrivate::socketRead()
             if (code[0] == '2')
             {
                 state = Authenticated;
-                emit qxt_p().authenticated();
+                emit q_func()->authenticated();
             }
             else
             {
                 state = Disconnected;
-                emit qxt_p().authenticationFailed();
-                emit qxt_p().authenticationFailed( line );
+                emit q_func()->authenticationFailed();
+                emit q_func()->authenticationFailed( line );
                 socket->disconnectFromHost();
             }
             break;
         case MailToSent:
         case RcptAckPending:
             if (code[0] != '2') {
-                emit qxt_p().mailFailed( pending.first().first, code.toInt() );
-                emit qxt_p().mailFailed(pending.first().first, code.toInt(), line);
+                emit q_func()->mailFailed( pending.first().first, code.toInt() );
+                emit q_func()->mailFailed(pending.first().first, code.toInt(), line);
 				// pending.removeFirst();
 				// DO NOT remove it, the body sent state needs this message to assigned the next mail failed message that will 
 				// the sendNext 
@@ -283,19 +291,19 @@ void QxtSmtpPrivate::socketRead()
 				// be necessary since I commented out the removeFirst
 				if (code[0] != '2')
 				{
-					emit qxt_p().mailFailed(pending.first().first, code.toInt() );
-					emit qxt_p().mailFailed(pending.first().first, code.toInt(), line);
+                    emit q_func()->mailFailed(pending.first().first, code.toInt() );
+                    emit q_func()->mailFailed(pending.first().first, code.toInt(), line);
 				}
 				else
-					emit qxt_p().mailSent(pending.first().first);
+                    emit q_func()->mailSent(pending.first().first);
 	            pending.removeFirst();
 			}
             sendNext();
             break;
         case Resetting:
             if (code[0] != '2') {
-                emit qxt_p().connectionFailed();
-                emit qxt_p().connectionFailed( line );
+                emit q_func()->connectionFailed();
+                emit q_func()->connectionFailed( line );
             }
             else {
                 state = Waiting;
@@ -390,7 +398,7 @@ void QxtSmtpPrivate::authenticate()
     if (!extensions.contains(QStringLiteral("AUTH")) || username.isEmpty() || password.isEmpty())
     {
         state = Authenticated;
-        emit qxt_p().authenticated();
+        emit q_func()->authenticated();
     }
     else
     {
@@ -410,7 +418,7 @@ void QxtSmtpPrivate::authenticate()
         else
         {
             state = Authenticated;
-            emit qxt_p().authenticated();
+            emit q_func()->authenticated();
         }
     }
 }
@@ -529,7 +537,7 @@ void QxtSmtpPrivate::sendNext()
     {
         // if there are no additional mails to send, finish up
         state = Waiting;
-        emit qxt_p().finished();
+        emit q_func()->finished();
         return;
     }
 
@@ -546,8 +554,8 @@ void QxtSmtpPrivate::sendNext()
     if (recipients.count() == 0)
     {
         // can't send an e-mail with no recipients
-        emit qxt_p().mailFailed(pending.first().first, QxtSmtp::NoRecipients );
-        emit qxt_p().mailFailed(pending.first().first, QxtSmtp::NoRecipients, QByteArray( "e-mail has no recipients" ) );
+        emit q_func()->mailFailed(pending.first().first, QxtSmtp::NoRecipients );
+        emit q_func()->mailFailed(pending.first().first, QxtSmtp::NoRecipients, QByteArray( "e-mail has no recipients" ) );
         pending.removeFirst();
         sendNext();
         return;
@@ -580,13 +588,13 @@ void QxtSmtpPrivate::sendNextRcpt(const QByteArray& code, const QByteArray&line)
         // on failure, emit a warning signal
         if (!mailAck)
         {
-            emit qxt_p().senderRejected(messageID, msg.sender());
-            emit qxt_p().senderRejected(messageID, msg.sender(), line );
+            emit q_func()->senderRejected(messageID, msg.sender());
+            emit q_func()->senderRejected(messageID, msg.sender(), line );
         }
         else
         {
-            emit qxt_p().recipientRejected(messageID, msg.sender());
-            emit qxt_p().recipientRejected(messageID, msg.sender(), line);
+            emit q_func()->recipientRejected(messageID, msg.sender());
+            emit q_func()->recipientRejected(messageID, msg.sender(), line);
         }
     }
     else if (!mailAck)
@@ -604,8 +612,8 @@ void QxtSmtpPrivate::sendNextRcpt(const QByteArray& code, const QByteArray&line)
         if (rcptAck == 0)
         {
             // no recipients were considered valid
-            emit qxt_p().mailFailed(messageID, code.toInt() );
-            emit qxt_p().mailFailed(messageID, code.toInt(), line);
+            emit q_func()->mailFailed(messageID, code.toInt() );
+            emit q_func()->mailFailed(messageID, code.toInt(), line);
             pending.removeFirst();
             sendNext();
         }
@@ -636,8 +644,8 @@ void QxtSmtpPrivate::sendBody(const QByteArray& code, const QByteArray & line)
 
     if (code[0] != '3')
     {
-        emit qxt_p().mailFailed(messageID, code.toInt() );
-        emit qxt_p().mailFailed(messageID, code.toInt(), line);
+        emit q_func()->mailFailed(messageID, code.toInt() );
+        emit q_func()->mailFailed(messageID, code.toInt(), line);
         pending.removeFirst();
         sendNext();
         return;

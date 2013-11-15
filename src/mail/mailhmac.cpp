@@ -32,9 +32,6 @@
 #include "mailhmac.h"
 #include <QtGlobal>
 
-#if QT_VERSION >= 0x040300
-
-
 /*
 \class QxtHmac
 
@@ -61,10 +58,9 @@ this scheme, the password is never stored or transmitted in plain text.
 */
 
 #ifndef QXT_DOXYGEN_RUN
-class QxtHmacPrivate : public QxtPrivate<QxtHmac>
+class QxtHmacPrivate
 {
 public:
-    QXT_DECLARE_PUBLIC(QxtHmac)
     QxtHmacPrivate() : ohash(0), ihash(0) {}
     ~QxtHmacPrivate()
     {
@@ -83,11 +79,19 @@ public:
  * Constructs a QxtHmac object using the specified algorithm.
  */
 QxtHmac::QxtHmac(QCryptographicHash::Algorithm algorithm)
+    :d_ptr(new QxtHmacPrivate)
 {
-    QXT_INIT_PRIVATE(QxtHmac);
-    qxt_d().ohash = new QCryptographicHash(algorithm);
-    qxt_d().ihash = new QCryptographicHash(algorithm);
-    qxt_d().algorithm = algorithm;
+    d_ptr->ohash = new QCryptographicHash(algorithm);
+    d_ptr->ihash = new QCryptographicHash(algorithm);
+    d_ptr->algorithm = algorithm;
+}
+
+/*!
+  Destructs the object.
+*/
+QxtHmac::~QxtHmac()
+{
+
 }
 
 /*!
@@ -97,8 +101,8 @@ QxtHmac::QxtHmac(QCryptographicHash::Algorithm algorithm)
  */
 void QxtHmac::setKey(QByteArray key)
 {
+    Q_D(QxtHmac);
     // We make the assumption that all hashes use a 512-bit block size; as of Qt 4.4.0 this is true of all supported hash functions
-    QxtHmacPrivate* d = &qxt_d();
     d->opad = QByteArray(64, 0x5c);
     d->ipad = QByteArray(64, 0x36);
     if (key.size() > 64)
@@ -121,7 +125,8 @@ void QxtHmac::setKey(QByteArray key)
  */
 void QxtHmac::reset()
 {
-    QxtHmacPrivate* d = &qxt_d();
+    Q_D(QxtHmac);
+
     d->ihash->reset();
     d->ihash->addData(d->ipad);
 }
@@ -136,7 +141,7 @@ void QxtHmac::reset()
  */
 QByteArray QxtHmac::innerHash() const
 {
-    return qxt_d().ihash->result();
+    return d_func()->ihash->result();
 }
 
 /*!
@@ -144,7 +149,7 @@ QByteArray QxtHmac::innerHash() const
  */
 QByteArray QxtHmac::result()
 {
-    QxtHmacPrivate* d = &qxt_d();
+    Q_D(QxtHmac);
     Q_ASSERT(d->opad.size());
     if (d->result.size())
         return d->result;
@@ -162,8 +167,8 @@ QByteArray QxtHmac::result()
  */
 bool QxtHmac::verify(const QByteArray& otherInner)
 {
+    Q_D(QxtHmac);
     result(); // populates d->result
-    QxtHmacPrivate* d = &qxt_d();
     d->ohash->reset();
     d->ohash->addData(d->opad);
     d->ohash->addData(otherInner);
@@ -175,9 +180,10 @@ bool QxtHmac::verify(const QByteArray& otherInner)
  */
 void QxtHmac::addData(const char* data, int length)
 {
-    Q_ASSERT(qxt_d().opad.size());
-    qxt_d().ihash->addData(data, length);
-    qxt_d().result.clear();
+    Q_D(QxtHmac);
+    Q_ASSERT(d->opad.size());
+    d->ihash->addData(data, length);
+    d->result.clear();
 }
 
 /*!
@@ -207,11 +213,9 @@ bool QxtHmac::verify(const QByteArray& key, const QByteArray& hmac, const QByteA
     QxtHmac calc(algorithm);
     calc.setKey(key);
 
-    QxtHmacPrivate* d = &calc.qxt_d();
+    QxtHmacPrivate* d = calc.d_func();
     d->ohash->reset();
     d->ohash->addData(d->opad);
     d->ohash->addData(inner);
     return hmac == d->ohash->result();
 }
-
-#endif

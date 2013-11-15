@@ -28,6 +28,7 @@
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 **
 *****************************************************************************/
+
 #ifndef MAILMESSAGE_H
 #define MAILMESSAGE_H
 

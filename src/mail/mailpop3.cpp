@@ -54,9 +54,6 @@
 #endif
 
 
-
-
-
 QxtPop3Private::QxtPop3Private() : QObject(0), disableStartTLS(false)
 {
     // empty ctor
@@ -65,22 +62,31 @@ QxtPop3Private::QxtPop3Private() : QObject(0), disableStartTLS(false)
 /*!
   Constructs a new QxtPop3 whith parent \a parent.
  */
-QxtPop3::QxtPop3(QObject* parent) : QObject(parent)
+QxtPop3::QxtPop3(QObject* parent)
+    : QObject(parent), d_ptr(new QxtPop3Private)
 {
-    QXT_INIT_PRIVATE(QxtPop3);
-    qxt_d().state = QxtPop3Private::Disconnected;
+    d_ptr->q_ptr = this;
+    d_ptr->state = QxtPop3Private::Disconnected;
 #ifndef QT_NO_OPENSSL
-    qxt_d().socket = new QSslSocket(this);
+    d_ptr->socket = new QSslSocket(this);
     QObject::connect(socket(), SIGNAL(encrypted()), this, SIGNAL(encrypted()));
-    QObject::connect(socket(), SIGNAL(encrypted()), &qxt_d(),SLOT(encrypted()));
+    QObject::connect(socket(), SIGNAL(encrypted()), d_func(),SLOT(encrypted()));
 #else
-    qxt_d().socket = new QTcpSocket(this);
+    d_func()->socket = new QTcpSocket(this);
 #endif
     QObject::connect(socket(), SIGNAL(connected()), this, SIGNAL(connected()));
     QObject::connect(socket(), SIGNAL(disconnected()), this, SIGNAL(disconnected()));
-    QObject::connect(socket(), SIGNAL(disconnected()), &qxt_d(), SLOT(disconnected()));
-    QObject::connect(socket(), SIGNAL(error(QAbstractSocket::SocketError)), &qxt_d(), SLOT(socketError(QAbstractSocket::SocketError)));
-    QObject::connect(socket(), SIGNAL(readyRead()), &qxt_d(), SLOT(socketRead()));
+    QObject::connect(socket(), SIGNAL(disconnected()), d_func(), SLOT(disconnected()));
+    QObject::connect(socket(), SIGNAL(error(QAbstractSocket::SocketError)), d_func(), SLOT(socketError(QAbstractSocket::SocketError)));
+    QObject::connect(socket(), SIGNAL(readyRead()), d_func(), SLOT(socketRead()));
+}
+
+/*!
+  Destroy this object.
+ */
+QxtPop3::~QxtPop3()
+{
+
 }
 
 /*!
@@ -88,7 +94,7 @@ QxtPop3::QxtPop3(QObject* parent) : QObject(parent)
  */
 QByteArray QxtPop3::username() const
 {
-    return qxt_d().username;
+    return d_func()->username;
 }
 
 /*!
@@ -97,7 +103,7 @@ QByteArray QxtPop3::username() const
   */
 void QxtPop3::setUsername(const QByteArray& username)
 {
-    qxt_d().username = username;
+    d_func()->username = username;
 }
 
 /*!
@@ -105,7 +111,7 @@ void QxtPop3::setUsername(const QByteArray& username)
  */
 QByteArray QxtPop3::password() const
 {
-    return qxt_d().password;
+    return d_func()->password;
 }
 
 /*!
@@ -114,7 +120,7 @@ QByteArray QxtPop3::password() const
   */
 void QxtPop3::setPassword(const QByteArray& password)
 {
-    qxt_d().password = password;
+    d_func()->password = password;
 }
 
 /*!
@@ -122,7 +128,7 @@ void QxtPop3::setPassword(const QByteArray& password)
   */
 QTcpSocket* QxtPop3::socket() const
 {
-    return qxt_d().socket;
+    return d_func()->socket;
 }
 
 /*!
@@ -133,8 +139,8 @@ QTcpSocket* QxtPop3::socket() const
  */
 void QxtPop3::connectToHost(const QString& hostName, quint16 port)
 {
-    qxt_d().useSecure = false;
-    qxt_d().state = QxtPop3Private::StartState;
+    d_func()->useSecure = false;
+    d_func()->state = QxtPop3Private::StartState;
     socket()->connectToHost(hostName, port);
 }
 
@@ -160,7 +166,7 @@ void QxtPop3::disconnectFromHost()
   */
 bool QxtPop3::startTlsDisabled() const
 {
-    return qxt_d().disableStartTLS;
+    return d_func()->disableStartTLS;
 }
 
 /*!
@@ -168,7 +174,7 @@ bool QxtPop3::startTlsDisabled() const
   */
 void QxtPop3::setStartTlsDisabled(bool disable)
 {
-    qxt_d().disableStartTLS = disable;
+    d_func()->disableStartTLS = disable;
 }
 
 #ifndef QT_NO_OPENSSL
@@ -178,7 +184,7 @@ void QxtPop3::setStartTlsDisabled(bool disable)
   */
 QSslSocket* QxtPop3::sslSocket() const
 {
-    return qxt_d().socket;
+    return d_func()->socket;
 }
 
 /*!
@@ -187,8 +193,8 @@ QSslSocket* QxtPop3::sslSocket() const
  */
 void QxtPop3::connectToSecureHost(const QString& hostName, quint16 port)
 {
-    qxt_d().useSecure = true;
-    qxt_d().state = QxtPop3Private::StartState;
+    d_func()->useSecure = true;
+    d_func()->state = QxtPop3Private::StartState;
     sslSocket()->connectToHostEncrypted(hostName, port);
 }
 
@@ -206,7 +212,7 @@ void QxtPop3::connectToSecureHost(const QHostAddress& address, quint16 port)
   */
 bool QxtPop3::isConnected() const
 {
-    return qxt_d().state != QxtPop3Private::Disconnected;
+    return d_func()->state != QxtPop3Private::Disconnected;
 }
 
 /*!
@@ -217,8 +223,8 @@ bool QxtPop3::isConnected() const
 QxtPop3StatReply* QxtPop3::stat(int timeout)
 {
     QxtPop3StatReply* reply = new QxtPop3StatReply(timeout, this);
-    qxt_d().pending.enqueue(reply);
-    qxt_d().dequeue();
+    d_func()->pending.enqueue(reply);
+    d_func()->dequeue();
     return reply;
 }
 
@@ -229,8 +235,8 @@ QxtPop3StatReply* QxtPop3::stat(int timeout)
 QxtPop3ListReply* QxtPop3::messageList(int timeout)
 {
     QxtPop3ListReply* reply = new QxtPop3ListReply(timeout, this);
-    qxt_d().pending.enqueue(reply);
-    qxt_d().dequeue();
+    d_func()->pending.enqueue(reply);
+    d_func()->dequeue();
     return reply;
 }
 
@@ -241,8 +247,8 @@ QxtPop3ListReply* QxtPop3::messageList(int timeout)
 QxtPop3RetrReply* QxtPop3::retrieveMessage(int which, int timeout)
 {
     QxtPop3RetrReply* reply = new QxtPop3RetrReply(which, timeout, this);
-    qxt_d().pending.enqueue(reply);
-    qxt_d().dequeue();
+    d_func()->pending.enqueue(reply);
+    d_func()->dequeue();
     return reply;
 }
 
@@ -258,8 +264,8 @@ QxtPop3RetrReply* QxtPop3::retrieveMessage(int which, int timeout)
 QxtPop3Reply* QxtPop3::deleteMessage(int which, int timeout)
 {
     QxtPop3DeleReply* reply = new QxtPop3DeleReply(which, timeout, this);
-    qxt_d().pending.enqueue(reply);
-    qxt_d().dequeue();
+    d_func()->pending.enqueue(reply);
+    d_func()->dequeue();
     return reply;
 }
 
@@ -274,8 +280,8 @@ QxtPop3Reply* QxtPop3::deleteMessage(int which, int timeout)
 QxtPop3Reply* QxtPop3::reset(int timeout)
 {
     QxtPop3ResetReply* reply = new QxtPop3ResetReply(timeout, this);
-    qxt_d().pending.enqueue(reply);
-    qxt_d().dequeue();
+    d_func()->pending.enqueue(reply);
+    d_func()->dequeue();
     return reply;
 }
 
@@ -290,8 +296,8 @@ QxtPop3Reply* QxtPop3::reset(int timeout)
 QxtPop3Reply* QxtPop3::quit(int timeout)
 {
     QxtPop3QuitReply* reply = new QxtPop3QuitReply(timeout, this);
-    qxt_d().pending.enqueue(reply);
-    qxt_d().dequeue();
+    d_func()->pending.enqueue(reply);
+    d_func()->dequeue();
     return reply;
 }
 
@@ -304,7 +310,7 @@ QxtPop3Reply* QxtPop3::quit(int timeout)
   */
 void QxtPop3::clearReplies()
 {
-    foreach(QxtPop3Reply* reply, qxt_d().pending)
+    foreach(QxtPop3Reply* reply, d_func()->pending)
     {
         switch(reply->status())
         {
@@ -367,12 +373,12 @@ void QxtPop3Private::socketError(QAbstractSocket::SocketError err)
 {
     if (err == QAbstractSocket::SslHandshakeFailedError)
     {
-        emit qxt_p().encryptionFailed( socket->errorString().toLatin1() );
+        emit q_func()->encryptionFailed( socket->errorString().toLatin1() );
         if (current != 0) current->cancel();
     }
     else if (state == StartState)
     {
-        emit qxt_p().connectionFailed( socket->errorString().toLatin1() );
+        emit q_func()->connectionFailed( socket->errorString().toLatin1() );
     }
 }
 
@@ -396,7 +402,7 @@ void QxtPop3Private::socketRead()
         case StartState: // we expect a greetings line, beginning with "+OK"
             if (!QxtPop3ReplyImpl::isAnswerOK(line))
             {
-                qxt_p().disconnectFromHost();
+                q_func()->disconnectFromHost();
             }
             state = Ready;
             {
@@ -435,7 +441,7 @@ void QxtPop3Private::encrypted()
 
 void QxtPop3Private::authenticated()
 {
-    emit qxt_p().authenticated();
+    emit q_func()->authenticated();
 }
 
 void QxtPop3Private::dequeue()
@@ -448,7 +454,7 @@ void QxtPop3Private::dequeue()
     {
         current = pending.dequeue();
         connect(current, SIGNAL(finished(int)), this, SLOT(terminate(int)));
-        current->qxt_d().status = QxtPop3Reply::Running;
+        current->d_func()->status = QxtPop3Reply::Running;
         state = Busy;
         QByteArray cmdLine = current->dialog("");
         socket->write(cmdLine);

@@ -41,13 +41,10 @@
 #    include <QSslSocket>
 #endif
 
-
-
-
 class QxtPop3AuthReplyImpl: public QxtPop3ReplyImpl
 {
 public:
-    QxtPop3AuthReplyImpl(QxtPop3ReplyPrivate& reply);
+    QxtPop3AuthReplyImpl(QxtPop3ReplyPrivate *reply);
     QByteArray dialog(QByteArray received);
     enum State {
         StartState,
@@ -65,7 +62,7 @@ private:
 
 };
 
-QxtPop3AuthReplyImpl::QxtPop3AuthReplyImpl(QxtPop3ReplyPrivate& reply) : QxtPop3ReplyImpl(reply), state(StartState)
+QxtPop3AuthReplyImpl::QxtPop3AuthReplyImpl(QxtPop3ReplyPrivate *reply) : QxtPop3ReplyImpl(reply), state(StartState)
 {
 }
 
@@ -103,8 +100,8 @@ QByteArray QxtPop3AuthReplyImpl::dialog(QByteArray received)
         else
         {
             qWarning("startTLS doesn't seem to be supported");
-            m_reply.status = QxtPop3Reply::Error;
-            m_reply.finish(QxtPop3Reply::Failed);
+            m_reply->status = QxtPop3Reply::Error;
+            m_reply->finish(QxtPop3Reply::Failed);
             pop->socket->disconnectFromHost();
         }
         break;
@@ -120,8 +117,8 @@ QByteArray QxtPop3AuthReplyImpl::dialog(QByteArray received)
         if (isAnswerOK(received))
         {
             // authenticated
-            m_reply.status = QxtPop3Reply::Completed;
-            m_reply.finish(QxtPop3Reply::OK);
+            m_reply->status = QxtPop3Reply::Completed;
+            m_reply->finish(QxtPop3Reply::OK);
             pop->authenticated();
         }
         break;
@@ -134,7 +131,7 @@ QByteArray QxtPop3AuthReplyImpl::dialog(QByteArray received)
 class QxtPop3QuitReplyImpl: public QxtPop3ReplyImpl
 {
 public:
-    QxtPop3QuitReplyImpl(QxtPop3ReplyPrivate& reply);
+    QxtPop3QuitReplyImpl(QxtPop3ReplyPrivate *reply);
     QByteArray dialog(QByteArray received);
     enum State {
         StartState,
@@ -144,7 +141,7 @@ private:
     State state;
 };
 
-QxtPop3QuitReplyImpl::QxtPop3QuitReplyImpl(QxtPop3ReplyPrivate& reply) : QxtPop3ReplyImpl(reply), state(StartState)
+QxtPop3QuitReplyImpl::QxtPop3QuitReplyImpl(QxtPop3ReplyPrivate *reply) : QxtPop3ReplyImpl(reply), state(StartState)
 {
 }
 
@@ -159,8 +156,8 @@ QByteArray QxtPop3QuitReplyImpl::dialog(QByteArray received)
         state = QuitSent;
         break;
     case QuitSent:
-        m_reply.status = QxtPop3Reply::Completed;
-        m_reply.finish(QxtPop3Reply::OK);
+        m_reply->status = QxtPop3Reply::Completed;
+        m_reply->finish(QxtPop3Reply::OK);
         break;
     default:
         break;
@@ -171,7 +168,7 @@ QByteArray QxtPop3QuitReplyImpl::dialog(QByteArray received)
 class QxtPop3StatReplyImpl: public QxtPop3ReplyImpl
 {
 public:
-    QxtPop3StatReplyImpl(QxtPop3ReplyPrivate& reply);
+    QxtPop3StatReplyImpl(QxtPop3ReplyPrivate *reply);
     QByteArray dialog(QByteArray received);
     enum State {
         StartState,
@@ -186,7 +183,7 @@ private:
     int m_size;
 };
 
-QxtPop3StatReplyImpl::QxtPop3StatReplyImpl(QxtPop3ReplyPrivate& reply): QxtPop3ReplyImpl(reply), state(StartState), m_count(-1), m_size(-1)
+QxtPop3StatReplyImpl::QxtPop3StatReplyImpl(QxtPop3ReplyPrivate *reply): QxtPop3ReplyImpl(reply), state(StartState), m_count(-1), m_size(-1)
 {
 }
 
@@ -205,12 +202,12 @@ QByteArray QxtPop3StatReplyImpl::dialog(QByteArray received)
             QTextStream input(received);
             QString ok;
             input >> ok >> m_count >> m_size;
-            m_reply.status = QxtPop3Reply::Completed;
-            m_reply.finish(QxtPop3Reply::OK);
+            m_reply->status = QxtPop3Reply::Completed;
+            m_reply->finish(QxtPop3Reply::OK);
         } else {
-            m_reply.status = QxtPop3Reply::Error;
-            m_reply.errString = QString::fromLatin1(received);
-            m_reply.finish(QxtPop3Reply::Failed);
+            m_reply->status = QxtPop3Reply::Error;
+            m_reply->errString = QString::fromLatin1(received);
+            m_reply->finish(QxtPop3Reply::Failed);
         }
         break;
     default:
@@ -224,7 +221,7 @@ QByteArray QxtPop3StatReplyImpl::dialog(QByteArray received)
 class QxtPop3ListReplyImpl: public QxtPop3ReplyImpl
 {
 public:
-    QxtPop3ListReplyImpl(QxtPop3ReplyPrivate& reply);
+    QxtPop3ListReplyImpl(QxtPop3ReplyPrivate *reply);
     QByteArray dialog(QByteArray received);
     enum State {
         StartState,
@@ -239,7 +236,7 @@ private:
     QList<QxtPop3Reply::MessageInfo> m_list;
 };
 
-QxtPop3ListReplyImpl::QxtPop3ListReplyImpl(QxtPop3ReplyPrivate& reply): QxtPop3ReplyImpl(reply), state(StartState)
+QxtPop3ListReplyImpl::QxtPop3ListReplyImpl(QxtPop3ReplyPrivate *reply): QxtPop3ReplyImpl(reply), state(StartState)
 {
 }
 
@@ -257,9 +254,9 @@ QByteArray QxtPop3ListReplyImpl::dialog(QByteArray received)
         {
             state = OKReceived;
         } else {
-            m_reply.status = QxtPop3Reply::Error;
-            m_reply.errString = QString::fromLatin1(received);
-            m_reply.finish(QxtPop3Reply::Failed);
+            m_reply->status = QxtPop3Reply::Error;
+            m_reply->errString = QString::fromLatin1(received);
+            m_reply->finish(QxtPop3Reply::Failed);
         }
         break;
     case OKReceived:
@@ -267,8 +264,8 @@ QByteArray QxtPop3ListReplyImpl::dialog(QByteArray received)
             QStringList words = QString::fromLatin1(received).split(QStringLiteral(" "));
             if (words[0] == QLatin1String("."))
             {
-                m_reply.status = QxtPop3Reply::Completed;
-                m_reply.finish(QxtPop3Reply::OK);
+                m_reply->status = QxtPop3Reply::Completed;
+                m_reply->finish(QxtPop3Reply::OK);
             }
             else
             {
@@ -289,7 +286,7 @@ QByteArray QxtPop3ListReplyImpl::dialog(QByteArray received)
 class QxtPop3RetrReplyImpl: public QxtPop3ReplyImpl
 {
 public:
-    QxtPop3RetrReplyImpl(QxtPop3ReplyPrivate& reply);
+    QxtPop3RetrReplyImpl(QxtPop3ReplyPrivate *reply);
     QByteArray dialog(QByteArray received);
     enum State {
         StartState,
@@ -309,7 +306,7 @@ private:
     int m_length;
 };
 
-QxtPop3RetrReplyImpl::QxtPop3RetrReplyImpl(QxtPop3ReplyPrivate& reply): QxtPop3ReplyImpl(reply), state(StartState), m_msg(0), m_which(-1), m_length(0)
+QxtPop3RetrReplyImpl::QxtPop3RetrReplyImpl(QxtPop3ReplyPrivate *reply): QxtPop3ReplyImpl(reply), state(StartState), m_msg(0), m_which(-1), m_length(0)
 {
 }
 
@@ -329,9 +326,9 @@ QByteArray QxtPop3RetrReplyImpl::dialog(QByteArray received)
             ret = buildCmd("RETR", QByteArray().number(m_which));
             state = RetrSent;
         } else {
-            m_reply.status = QxtPop3Reply::Error;
-            m_reply.errString = QString::fromLatin1(received);
-            m_reply.finish(QxtPop3Reply::Failed);
+            m_reply->status = QxtPop3Reply::Error;
+            m_reply->errString = QString::fromLatin1(received);
+            m_reply->finish(QxtPop3Reply::Failed);
         }
         break;
     case RetrSent:
@@ -339,9 +336,9 @@ QByteArray QxtPop3RetrReplyImpl::dialog(QByteArray received)
         {
             state = OKReceived;
         } else {
-            m_reply.status = QxtPop3Reply::Error;
-            m_reply.errString = QString::fromLatin1(received);
-            m_reply.finish(QxtPop3Reply::Failed);
+            m_reply->status = QxtPop3Reply::Error;
+            m_reply->errString = QString::fromLatin1(received);
+            m_reply->finish(QxtPop3Reply::Failed);
         }
         break;
     case OKReceived:
@@ -352,8 +349,8 @@ QByteArray QxtPop3RetrReplyImpl::dialog(QByteArray received)
                 {
                     // Termination line. The whole message is received by now.
                     m_msg = new QxtMailMessage(m_message);
-                    m_reply.status = QxtPop3Reply::Completed;
-                    m_reply.finish(QxtPop3Reply::OK);
+                    m_reply->status = QxtPop3Reply::Completed;
+                    m_reply->finish(QxtPop3Reply::OK);
                 }
                 else // remove first dot
                 {
@@ -362,7 +359,7 @@ QByteArray QxtPop3RetrReplyImpl::dialog(QByteArray received)
             }
             m_message += received + "\r\n";
             int p = (100*m_message.length())/m_length;
-            m_reply.progress(p);
+            m_reply->progress(p);
         }
         break;
     default:
@@ -374,7 +371,7 @@ QByteArray QxtPop3RetrReplyImpl::dialog(QByteArray received)
 class QxtPop3ResetReplyImpl: public QxtPop3ReplyImpl
 {
 public:
-    QxtPop3ResetReplyImpl(QxtPop3ReplyPrivate& reply);
+    QxtPop3ResetReplyImpl(QxtPop3ReplyPrivate *reply);
     QByteArray dialog(QByteArray received);
     enum State {
         StartState,
@@ -385,7 +382,7 @@ private:
     State state;
 };
 
-QxtPop3ResetReplyImpl::QxtPop3ResetReplyImpl(QxtPop3ReplyPrivate& reply): QxtPop3ReplyImpl(reply), state(StartState)
+QxtPop3ResetReplyImpl::QxtPop3ResetReplyImpl(QxtPop3ReplyPrivate *reply): QxtPop3ReplyImpl(reply), state(StartState)
 {
     // empty ctor
 }
@@ -404,12 +401,12 @@ QByteArray QxtPop3ResetReplyImpl::dialog(QByteArray received)
     case RsetSent:
         if (isAnswerOK(received))
         {
-            m_reply.status = QxtPop3Reply::Completed;
-            m_reply.finish(QxtPop3Reply::OK);
+            m_reply->status = QxtPop3Reply::Completed;
+            m_reply->finish(QxtPop3Reply::OK);
         } else {
-            m_reply.status = QxtPop3Reply::Error;
-            m_reply.errString = QString::fromLatin1(received);
-            m_reply.finish(QxtPop3Reply::Failed);
+            m_reply->status = QxtPop3Reply::Error;
+            m_reply->errString = QString::fromLatin1(received);
+            m_reply->finish(QxtPop3Reply::Failed);
         }
         break;
     default:
@@ -421,7 +418,7 @@ QByteArray QxtPop3ResetReplyImpl::dialog(QByteArray received)
 class QxtPop3DeleReplyImpl: public QxtPop3ReplyImpl
 {
 public:
-    QxtPop3DeleReplyImpl(QxtPop3ReplyPrivate& reply);
+    QxtPop3DeleReplyImpl(QxtPop3ReplyPrivate *reply);
     QByteArray dialog(QByteArray received);
     enum State {
         StartState,
@@ -435,7 +432,7 @@ private:
     int m_which;
 };
 
-QxtPop3DeleReplyImpl::QxtPop3DeleReplyImpl(QxtPop3ReplyPrivate& reply): QxtPop3ReplyImpl(reply), state(StartState), m_which(-1)
+QxtPop3DeleReplyImpl::QxtPop3DeleReplyImpl(QxtPop3ReplyPrivate *reply): QxtPop3ReplyImpl(reply), state(StartState), m_which(-1)
 {
     // empty ctor
 }
@@ -454,12 +451,12 @@ QByteArray QxtPop3DeleReplyImpl::dialog(QByteArray received)
     case DeleSent:
         if (isAnswerOK(received))
         {
-            m_reply.status = QxtPop3Reply::Completed;
-            m_reply.finish(QxtPop3Reply::OK);
+            m_reply->status = QxtPop3Reply::Completed;
+            m_reply->finish(QxtPop3Reply::OK);
         } else {
-            m_reply.status = QxtPop3Reply::Error;
-            m_reply.errString = QString::fromLatin1(received);
-            m_reply.finish(QxtPop3Reply::Failed);
+            m_reply->status = QxtPop3Reply::Error;
+            m_reply->errString = QString::fromLatin1(received);
+            m_reply->finish(QxtPop3Reply::Failed);
         }
         break;
     default:
@@ -529,11 +526,12 @@ QByteArray QxtPop3DeleReplyImpl::dialog(QByteArray received)
   \value Top TOP POP3 command.
   */
 
-QxtPop3Reply::QxtPop3Reply(int timeout, QObject* parent) : QObject(parent)
+QxtPop3Reply::QxtPop3Reply(int timeout, QObject* parent)
+    : QObject(parent), d_ptr(new QxtPop3ReplyPrivate)
 {
-    QXT_INIT_PRIVATE(QxtPop3Reply);
-    qxt_d().timeout = timeout;
-    qxt_d().status = QxtPop3Reply::Pending;
+    d_ptr->q_ptr = this;
+    d_ptr->timeout = timeout;
+    d_ptr->status = QxtPop3Reply::Pending;
 }
 
 /*!
@@ -549,7 +547,7 @@ QxtPop3Reply::~QxtPop3Reply()
   */
 QxtPop3Reply::Status QxtPop3Reply::status() const
 {
-    return qxt_d().status;
+    return d_func()->status;
 }
 
 /*!
@@ -559,7 +557,7 @@ QxtPop3Reply::Status QxtPop3Reply::status() const
   */
 QString QxtPop3Reply::error() const
 {
-    return qxt_d().errString;
+    return d_func()->errString;
 }
 
 /*!
@@ -567,7 +565,7 @@ QString QxtPop3Reply::error() const
   */
 QxtPop3Reply::Type QxtPop3Reply::type() const
 {
-    return qxt_d().type;
+    return d_func()->type;
 }
 
 /*!
@@ -575,8 +573,8 @@ QxtPop3Reply::Type QxtPop3Reply::type() const
   */
 void QxtPop3Reply::cancel()
 {
-    qxt_d().status = Error;
-    qxt_d().errString = QStringLiteral("Canceled.");
+    d_func()->status = Error;
+    d_func()->errString = QStringLiteral("Canceled.");
     emit finished(Aborted);
 }
 
@@ -597,32 +595,32 @@ void QxtPop3Reply::cancel()
 
 void QxtPop3Reply::setup(Type type)
 {
-    qxt_d().type = type;
+    d_func()->type = type;
     switch (type)
     {
     case Auth:
-        qxt_d().impl = new QxtPop3AuthReplyImpl(qxt_d());
+        d_func()->impl = new QxtPop3AuthReplyImpl(d_func());
         break;
     case Quit:
-        qxt_d().impl = new QxtPop3QuitReplyImpl(qxt_d());
+        d_func()->impl = new QxtPop3QuitReplyImpl(d_func());
         break;
     case Stat:
-        qxt_d().impl = new QxtPop3StatReplyImpl(qxt_d());
+        d_func()->impl = new QxtPop3StatReplyImpl(d_func());
         break;
     case List:
-        qxt_d().impl = new QxtPop3ListReplyImpl(qxt_d());
+        d_func()->impl = new QxtPop3ListReplyImpl(d_func());
         break;
     case Reset:
-        qxt_d().impl = new QxtPop3ResetReplyImpl(qxt_d());
+        d_func()->impl = new QxtPop3ResetReplyImpl(d_func());
         break;
     case Dele:
-        qxt_d().impl = new QxtPop3DeleReplyImpl(qxt_d());
+        d_func()->impl = new QxtPop3DeleReplyImpl(d_func());
         break;
     case Retr:
-        qxt_d().impl = new QxtPop3RetrReplyImpl(qxt_d());
+        d_func()->impl = new QxtPop3RetrReplyImpl(d_func());
         break;
 //    case Top:
-//        qxt_d().impl = new QxtPop3TopReplyImpl(qxt_d());
+//        d_func()->impl = new QxtPop3TopReplyImpl(d_func());
 //        break;
     default:
         qWarning("QxtPop3Reply::setup: unhandled type %d", type);
@@ -632,22 +630,22 @@ void QxtPop3Reply::setup(Type type)
 
 QxtPop3ReplyImpl* QxtPop3Reply::impl()
 {
-    return qxt_d().impl;
+    return d_func()->impl;
 }
 
 const QxtPop3ReplyImpl* QxtPop3Reply::impl() const
 {
-    return qxt_d().impl;
+    return d_func()->impl;
 }
 
 QByteArray QxtPop3Reply::dialog(QByteArray received)
 {
-    if (!qxt_d().impl)
+    if (!d_func()->impl)
     {
         qWarning("QxtPop3Reply::dialog: No implementation !");
         return QByteArray();
     }
-    return qxt_d().impl->dialog(received);
+    return d_func()->impl->dialog(received);
 }
 
 QxtPop3ReplyPrivate::QxtPop3ReplyPrivate() : QObject(0), impl(0)

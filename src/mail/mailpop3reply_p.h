@@ -41,7 +41,7 @@ class QxtPop3Private;
 class QxtPop3ReplyImpl
 {
 public:
-    QxtPop3ReplyImpl(QxtPop3ReplyPrivate& reply): m_reply(reply) {}
+    QxtPop3ReplyImpl(QxtPop3ReplyPrivate *reply): m_reply(reply) {}
     virtual ~QxtPop3ReplyImpl() {}
 
     virtual QByteArray dialog(QByteArray received) = 0;
@@ -62,21 +62,22 @@ public:
     }
 
 protected:
-    QxtPop3ReplyPrivate& m_reply;
+    QxtPop3ReplyPrivate *m_reply;
 
 };
 
-class QxtPop3ReplyPrivate : public QObject, public QxtPrivate<QxtPop3Reply>
+class QxtPop3ReplyPrivate : public QObject
 {
     Q_OBJECT
 public:
     QxtPop3ReplyPrivate();
     virtual ~QxtPop3ReplyPrivate() {if (impl) delete impl;}
 
-    QXT_DECLARE_PUBLIC(QxtPop3Reply)
+    Q_DECLARE_PUBLIC(QxtPop3Reply)
+    QxtPop3Reply *q_ptr;
 
-    void finish(int code) {emit qxt_p().finished(code);}
-    void progress(int pc) {emit qxt_p().progress(pc);}
+    void finish(int code) {emit q_func()->finished(code);}
+    void progress(int pc) {emit q_func()->progress(pc);}
     QTimer timer;
 
     virtual void run();

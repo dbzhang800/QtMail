@@ -32,14 +32,9 @@
 #ifndef MAILHMAC_H
 #define MAILHMAC_H
 
-#include <QtGlobal>
-
-#if QT_VERSION < 0x040300
-#   warning QxtHmac requires Qt 4.3.0 or greater
-#else
-
-#include <QCryptographicHash>
 #include "mailglobal.h"
+#include <QScopedPointer>
+#include <QCryptographicHash>
 
 class QxtHmacPrivate;
 class Q_MAIL_EXPORT QxtHmac
@@ -48,6 +43,7 @@ public:
     typedef QCryptographicHash::Algorithm Algorithm;
 
     QxtHmac(QCryptographicHash::Algorithm algorithm);
+    ~QxtHmac();
 
     void setKey(QByteArray key);
     void reset();
@@ -63,8 +59,8 @@ public:
     static bool verify(const QByteArray& key, const QByteArray& hmac, const QByteArray& inner, Algorithm algorithm);
 
 private:
-    QXT_DECLARE_PRIVATE(QxtHmac)
+    Q_DECLARE_PRIVATE(QxtHmac)
+    QScopedPointer<QxtHmacPrivate> d_ptr;
 };
 
-#endif
 #endif //MAILHMAC_H

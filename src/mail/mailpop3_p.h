@@ -35,13 +35,14 @@
 #include "mailpop3.h"
 #include <QQueue>
 
-class QxtPop3Private : public QObject, public QxtPrivate<QxtPop3>
+class QxtPop3Private : public QObject
 {
     Q_OBJECT
 public:
     QxtPop3Private();
 
-    QXT_DECLARE_PUBLIC(QxtPop3)
+    Q_DECLARE_PUBLIC(QxtPop3)
+    QxtPop3 *q_ptr;
 
     enum Pop3State
     {
