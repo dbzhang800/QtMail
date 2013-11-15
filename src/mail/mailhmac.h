@@ -1,4 +1,4 @@
-#ifndef QXTSMTP_P_H
+
 /****************************************************************************
 ** Copyright (c) 2006 - 2011, the LibQxt project.
 ** See the Qxt AUTHORS file for a list of authors and copyright holders.
@@ -29,78 +29,42 @@
 ** <http://libqxt.org>  <foundation@libqxt.org>
 *****************************************************************************/
 
-#define QXTSMTP_P_H
+#ifndef MAILHMAC_H
+#define MAILHMAC_H
 
-#include "qxtsmtp.h"
-#include <QHash>
-#include <QString>
-#include <QList>
-#include <QPair>
+#include <QtGlobal>
 
-class QxtSmtpPrivate : public QObject, public QxtPrivate<QxtSmtp>
-{
-    Q_OBJECT
-public:
-    QxtSmtpPrivate();
-
-    QXT_DECLARE_PUBLIC(QxtSmtp)
-
-    enum SmtpState
-    {
-        Disconnected,
-        StartState,
-        EhloSent,
-        EhloGreetReceived,
-        EhloExtensionsReceived,
-        EhloDone,
-        HeloSent,
-        StartTLSSent,
-        AuthRequestSent,
-        AuthUsernameSent,
-        AuthSent,
-        Authenticated,
-        MailToSent,
-        RcptAckPending,
-        SendingBody,
-        BodySent,
-        Waiting,
-        Resetting
-    };
-
-    bool useSecure, disableStartTLS;
-    SmtpState state; // rather then an int use the enum.  makes sure invalid states are entered at compile time, and makes debugging easier
-    QxtSmtp::AuthType authType;
-    int allowedAuthTypes;
-    QByteArray buffer, username, password;
-    QHash<QString, QString> extensions;
-    QList<QPair<int, QxtMailMessage> > pending;
-    QStringList recipients;
-    int nextID, rcptNumber, rcptAck;
-    bool mailAck;
-
-#ifndef QT_NO_OPENSSL
-    QSslSocket* socket;
+#if QT_VERSION < 0x040300
+#   warning QxtHmac requires Qt 4.3.0 or greater
 #else
-    QTcpSocket* socket;
-#endif
 
-    void parseEhlo(const QByteArray& code, bool cont, const QString& line);
-    void startTLS();
-    void authenticate();
+#include <QCryptographicHash>
+#include "mailglobal.h"
 
-    void authCramMD5(const QByteArray& challenge = QByteArray());
-    void authPlain();
-    void authLogin();
+class QxtHmacPrivate;
+class Q_MAIL_EXPORT QxtHmac
+{
+public:
+    typedef QCryptographicHash::Algorithm Algorithm;
 
-    void sendNextRcpt(const QByteArray& code, const QByteArray & line);
-    void sendBody(const QByteArray& code, const QByteArray & line);
+    QxtHmac(QCryptographicHash::Algorithm algorithm);
 
-public slots:
-    void socketError(QAbstractSocket::SocketError err);
-    void socketRead();
+    void setKey(QByteArray key);
+    void reset();
 
-    void ehlo();
-    void sendNext();
+    void addData(const char* data, int length);
+    void addData(const QByteArray& data);
+
+    QByteArray innerHash() const;
+    QByteArray result();
+    bool verify(const QByteArray& otherInner);
+
+    static QByteArray hash(const QByteArray& key, const QByteArray& data, Algorithm algorithm);
+    static bool verify(const QByteArray& key, const QByteArray& hmac, const QByteArray& inner, Algorithm algorithm);
+
+private:
+    QXT_DECLARE_PRIVATE(QxtHmac)
 };
 
-#endif // QXTSMTP_P_H
+#endif
+#endif //MAILHMAC_H

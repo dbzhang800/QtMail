@@ -29,7 +29,7 @@
 ** <http://libqxt.org>  <foundation@libqxt.org>
 *****************************************************************************/
 
-#include "qxthmac.h"
+#include "mailhmac.h"
 #include <QtGlobal>
 
 #if QT_VERSION >= 0x040300

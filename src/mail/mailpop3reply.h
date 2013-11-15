@@ -1,4 +1,4 @@
-#ifndef QXTMAIL_P_H
+#ifndef MAILPOP3REPLY_H
 /****************************************************************************
 ** Copyright (c) 2006 - 2011, the LibQxt project.
 ** See the Qxt AUTHORS file for a list of authors and copyright holders.
@@ -29,13 +29,94 @@
 ** <http://libqxt.org>  <foundation@libqxt.org>
 *****************************************************************************/
 
-#define QXTMAIL_P_H
+#define MAILPOP3REPLY_H
 
-#include <QByteArray>
 
-#define QXT_MUST_QP(x) (x < char(32) || x > char(126) || x == '=' || x == '?')
-QByteArray qxt_fold_mime_header(const QString& key, const QString& value, QTextCodec* latin1,
-                                const QByteArray& prefix = QByteArray());
-bool isTextMedia(const QString& contentType);
+#include "mailglobal.h"
 
-#endif // QXTMAIL_P_H
+#include <QObject>
+
+class QxtPop3ReplyPrivate;
+class QxtPop3ReplyImpl;
+class Q_MAIL_EXPORT QxtPop3Reply: public QObject
+{
+    Q_OBJECT
+    friend class QxtPop3;
+    friend class QxtPop3Private;
+public:
+
+    enum Status {
+        Pending,
+        Running,
+        Completed,
+        Timedout,
+        Error
+    };
+
+    enum ReturnCode {
+        OK,
+        Timeout,
+        Failed,
+        Aborted
+    };
+
+    enum Type {
+        Auth,
+        Quit,
+        Stat,
+        List,
+        Reset,
+        Dele,
+        Retr,
+        Top
+    };
+
+    struct MessageInfo
+    {
+        int id;
+        int size;
+    };
+
+    Status status() const;
+    QString error() const;
+    Type type() const;
+
+    virtual void cancel();
+
+    virtual ~QxtPop3Reply();
+
+Q_SIGNALS:
+    void finished(int code);
+    void progress(int percent);
+
+protected:
+    /*!
+      \internal
+      This class isn't meant to be subclassed by client code. This API only exists for internal purposes.
+      */
+    QxtPop3Reply(int timeout, QObject* parent = 0);
+//    void setError(const QString& s);
+//    void setStatus(const Status);
+    /*!
+      \internal
+      This class isn't meant to be subclassed by client code. This API only exists for internal purposes.
+      */
+    void setup(Type type);
+    /*!
+      \internal
+      This class isn't meant to be subclassed by client code. This API only exists for internal purposes.
+      */
+    QxtPop3ReplyImpl* impl();
+    /*!
+      \internal
+      This class isn't meant to be subclassed by client code. This API only exists for internal purposes.
+      */
+    const QxtPop3ReplyImpl* impl() const;
+
+private:
+    QByteArray dialog(QByteArray received);
+    QXT_DECLARE_PRIVATE(QxtPop3Reply)
+    Q_DISABLE_COPY(QxtPop3Reply)
+};
+
+#endif // MAILPOP3LISTREPLY_H

@@ -1,5 +1,5 @@
 #include "mainwindow.h"
-#include <QxtPop3Reply>
+#include "mailpop3reply.h"
 #include <QPair>
 #include <QFileDialog>
 #include <QFile>

@@ -1,4 +1,4 @@
-#ifndef QXTPOP3RETRREPLY_H
+#ifndef MAILATTACHMENT_H
 /****************************************************************************
 ** Copyright (c) 2006 - 2011, the LibQxt project.
 ** See the Qxt AUTHORS file for a list of authors and copyright holders.
@@ -29,18 +29,52 @@
 ** <http://libqxt.org>  <foundation@libqxt.org>
 *****************************************************************************/
 
-#define QXTPOP3RETRREPLY_H
+#define MAILATTACHMENT_H
 
-#include "qxtpop3reply.h"
-class QxtMailMessage;
-class Q_MAIL_EXPORT QxtPop3RetrReply: public QxtPop3Reply
+#include "mailglobal.h"
+
+#include <QStringList>
+#include <QHash>
+#include <QByteArray>
+#include <QMetaType>
+#include <QSharedDataPointer>
+
+class QxtMailAttachmentPrivate;
+class Q_MAIL_EXPORT QxtMailAttachment
 {
-    friend class QxtPop3;
 public:
-    QxtMailMessage* message();
+    QxtMailAttachment();
+    QxtMailAttachment(const QxtMailAttachment& other);
+    QxtMailAttachment(const QByteArray& content, const QString& contentType = QStringLiteral("application/octet-stream"));
+    QxtMailAttachment(QIODevice* content, const QString& contentType = QStringLiteral("application/octet-stream"));
+    QxtMailAttachment& operator=(const QxtMailAttachment& other);
+    ~QxtMailAttachment();
+    static QxtMailAttachment fromFile(const QString& filename);
+
+    QIODevice* content() const;
+    void setContent(const QByteArray& content);
+    void setContent(QIODevice* content);
+
+    bool deleteContent() const;
+    void setDeleteContent(bool enable);
+
+    QString contentType() const;
+    void setContentType(const QString& contentType);
+
+    QHash<QString, QString> extraHeaders() const;
+    QString extraHeader(const QString&) const;
+    bool hasExtraHeader(const QString&) const;
+    void setExtraHeader(const QString& key, const QString& value);
+    void setExtraHeaders(const QHash<QString, QString>&);
+    void removeExtraHeader(const QString& key);
+
+    QByteArray mimeData();
+    const QByteArray& rawData() const;
+    bool isText() const;
 
 private:
-    QxtPop3RetrReply(int which, int timeout, QObject* parent = 0);
+    QSharedDataPointer<QxtMailAttachmentPrivate> qxt_d;
 };
+Q_DECLARE_TYPEINFO(QxtMailAttachment, Q_MOVABLE_TYPE);
 
-#endif // QXTPOP3RETRREPLY_H
+#endif // MAILATTACHMENT_H

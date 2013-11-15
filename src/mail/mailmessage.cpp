@@ -38,8 +38,8 @@
  */
 
 
-#include "qxtmailmessage.h"
-#include "qxtmail_p.h"
+#include "mailmessage.h"
+#include "mailutility_p.h"
 #include <QTextCodec>
 #include <QUuid>
 #include <QDir>
@@ -47,6 +47,8 @@
 #include <QRegExp>
 
 //#define QXT_MAIL_MESSAGE_DEBUG 1
+
+#define MUST_QP(x) (x < char(32) || x > char(126) || x == '=' || x == '?')
 
 struct QxtMailMessagePrivate : public QSharedData
 {
@@ -298,7 +300,7 @@ QByteArray qxt_fold_mime_header(const QString& key, const QString& value, QTextC
         int nonAscii = 0;
         for (int i = 0; i < ct && i < 100; i++)
         {
-            if (QXT_MUST_QP(utf8[i])) nonAscii++;
+            if (MUST_QP(utf8[i])) nonAscii++;
         }
         if (nonAscii > 20)
         {
@@ -327,7 +329,7 @@ QByteArray qxt_fold_mime_header(const QString& key, const QString& value, QTextC
                     rv += line + "?=\r\n";
                     line = " =?utf-8?q?";
                 }
-                if (QXT_MUST_QP(utf8[i]) || utf8[i] == ' ')
+                if (MUST_QP(utf8[i]) || utf8[i] == ' ')
                 {
                     line += "=" + utf8.mid(i, 1).toHex().toUpper();
                 }
@@ -390,7 +392,7 @@ QByteArray QxtMailMessage::rfc2822() const
             int ct = b.length();
             for (int i = 0; i < ct && i < 100; i++)
             {
-                if (QXT_MUST_QP(b[i])) nonAscii++;
+                if (MUST_QP(b[i])) nonAscii++;
             }
             useQuotedPrintable = !(nonAscii > 20);
             useBase64 = !useQuotedPrintable;
@@ -543,7 +545,7 @@ QByteArray QxtMailMessage::rfc2822() const
                 rv += line + "=\r\n";
                 line = "";
             }
-            if (QXT_MUST_QP(b[i]))
+            if (MUST_QP(b[i]))
             {
                 line += "=" + b.mid(i, 1).toHex().toUpper();
             }

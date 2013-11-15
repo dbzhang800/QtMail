@@ -1,4 +1,4 @@
-#ifndef QXTPOP3REPLY_H
+#ifndef MAILSMTP_P_H
 /****************************************************************************
 ** Copyright (c) 2006 - 2011, the LibQxt project.
 ** See the Qxt AUTHORS file for a list of authors and copyright holders.
@@ -29,94 +29,78 @@
 ** <http://libqxt.org>  <foundation@libqxt.org>
 *****************************************************************************/
 
-#define QXTPOP3REPLY_H
+#define MAILSMTP_P_H
 
+#include "mailsmtp.h"
+#include <QHash>
+#include <QString>
+#include <QList>
+#include <QPair>
 
-#include "qxtglobal.h"
-
-#include <QObject>
-
-class QxtPop3ReplyPrivate;
-class QxtPop3ReplyImpl;
-class Q_MAIL_EXPORT QxtPop3Reply: public QObject
+class QxtSmtpPrivate : public QObject, public QxtPrivate<QxtSmtp>
 {
     Q_OBJECT
-    friend class QxtPop3;
-    friend class QxtPop3Private;
 public:
+    QxtSmtpPrivate();
 
-    enum Status {
-        Pending,
-        Running,
-        Completed,
-        Timedout,
-        Error
-    };
+    QXT_DECLARE_PUBLIC(QxtSmtp)
 
-    enum ReturnCode {
-        OK,
-        Timeout,
-        Failed,
-        Aborted
-    };
-
-    enum Type {
-        Auth,
-        Quit,
-        Stat,
-        List,
-        Reset,
-        Dele,
-        Retr,
-        Top
-    };
-
-    struct MessageInfo
+    enum SmtpState
     {
-        int id;
-        int size;
+        Disconnected,
+        StartState,
+        EhloSent,
+        EhloGreetReceived,
+        EhloExtensionsReceived,
+        EhloDone,
+        HeloSent,
+        StartTLSSent,
+        AuthRequestSent,
+        AuthUsernameSent,
+        AuthSent,
+        Authenticated,
+        MailToSent,
+        RcptAckPending,
+        SendingBody,
+        BodySent,
+        Waiting,
+        Resetting
     };
 
-    Status status() const;
-    QString error() const;
-    Type type() const;
+    bool useSecure, disableStartTLS;
+    SmtpState state; // rather then an int use the enum.  makes sure invalid states are entered at compile time, and makes debugging easier
+    QxtSmtp::AuthType authType;
+    int allowedAuthTypes;
+    QByteArray buffer, username, password;
+    QHash<QString, QString> extensions;
+    QList<QPair<int, QxtMailMessage> > pending;
+    QStringList recipients;
+    int nextID, rcptNumber, rcptAck;
+    bool mailAck;
 
-    virtual void cancel();
+#ifndef QT_NO_OPENSSL
+    QSslSocket* socket;
+#else
+    QTcpSocket* socket;
+#endif
 
-    virtual ~QxtPop3Reply();
+    void parseEhlo(const QByteArray& code, bool cont, const QString& line);
+    void startTLS();
+    void authenticate();
 
-Q_SIGNALS:
-    void finished(int code);
-    void progress(int percent);
+    void authCramMD5(const QByteArray& challenge = QByteArray());
+    void authPlain();
+    void authLogin();
 
-protected:
-    /*!
-      \internal
-      This class isn't meant to be subclassed by client code. This API only exists for internal purposes.
-      */
-    QxtPop3Reply(int timeout, QObject* parent = 0);
-//    void setError(const QString& s);
-//    void setStatus(const Status);
-    /*!
-      \internal
-      This class isn't meant to be subclassed by client code. This API only exists for internal purposes.
-      */
-    void setup(Type type);
-    /*!
-      \internal
-      This class isn't meant to be subclassed by client code. This API only exists for internal purposes.
-      */
-    QxtPop3ReplyImpl* impl();
-    /*!
-      \internal
-      This class isn't meant to be subclassed by client code. This API only exists for internal purposes.
-      */
-    const QxtPop3ReplyImpl* impl() const;
+    void sendNextRcpt(const QByteArray& code, const QByteArray & line);
+    void sendBody(const QByteArray& code, const QByteArray & line);
 
-private:
-    QByteArray dialog(QByteArray received);
-    QXT_DECLARE_PRIVATE(QxtPop3Reply)
-    Q_DISABLE_COPY(QxtPop3Reply)
+public slots:
+    void socketError(QAbstractSocket::SocketError err);
+    void socketRead();
+
+    void ehlo();
+    void sendNext();
 };
 
-#endif // QXTPOP3REPLY_H
+#endif // MAILSMTP_P_H

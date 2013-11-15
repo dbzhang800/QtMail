@@ -1,5 +1,5 @@
 #include <QtCore>
-#include "qxtsmtp.h"
+#include "mailsmtp.h"
 
 int main(int argc, char *argv[])
 {

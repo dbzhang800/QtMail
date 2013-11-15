@@ -1,4 +1,4 @@
-#ifndef QXTSMTP_H
+#ifndef MAILPOP3_H
 /****************************************************************************
 ** Copyright (c) 2006 - 2011, the LibQxt project.
 ** See the Qxt AUTHORS file for a list of authors and copyright holders.
@@ -29,49 +29,34 @@
 ** <http://libqxt.org>  <foundation@libqxt.org>
 *****************************************************************************/
 
-#define QXTSMTP_H
+#define MAILPOP3_H
+
+
+#include "mailglobal.h"
+#include "mailmessage.h"
+#include "mailpop3reply.h"
+#include "mailpop3statreply.h"
+#include "mailpop3listreply.h"
+#include "mailpop3retrreply.h"
 
 #include <QObject>
 #include <QHostAddress>
 #include <QString>
-
-#include "qxtglobal.h"
-#include "qxtmailmessage.h"
+#include <QHash>
+#include <QList>
+#include <QPair>
 
 class QTcpSocket;
 #ifndef QT_NO_OPENSSL
 class QSslSocket;
 #endif
 
-class QxtSmtpPrivate;
-class Q_MAIL_EXPORT QxtSmtp : public QObject
+class QxtPop3Private;
+class Q_MAIL_EXPORT QxtPop3 : public QObject
 {
     Q_OBJECT
 public:
-    enum SmtpError
-    {
-        NoError,
-        NoRecipients,
-        CommandUnrecognized = 500,
-        SyntaxError,
-        CommandNotImplemented,
-        BadSequence,
-        ParameterNotImplemented,
-        MailboxUnavailable = 550,
-        UserNotLocal,
-        MessageTooLarge,
-        InvalidMailboxName,
-        TransactionFailed
-    };
-
-    enum AuthType
-    {
-        AuthPlain,
-        AuthLogin,
-        AuthCramMD5
-    };
-
-    QxtSmtp(QObject* parent = 0);
+    explicit QxtPop3(QObject* parent = 0);
 
     QByteArray username() const;
     void setUsername(const QByteArray& name);
@@ -79,12 +64,9 @@ public:
     QByteArray password() const;
     void setPassword(const QByteArray& password);
 
-    int send(const QxtMailMessage& message);
-    int pendingMessages() const;
-
     QTcpSocket* socket() const;
-    void connectToHost(const QString& hostName, quint16 port = 25);
-    void connectToHost(const QHostAddress& address, quint16 port = 25);
+    void connectToHost(const QString& hostName, quint16 port = 110);
+    void connectToHost(const QHostAddress& address, quint16 port = 110);
     void disconnectFromHost();
 
     bool startTlsDisabled() const;
@@ -92,40 +74,38 @@ public:
 
 #ifndef QT_NO_OPENSSL
     QSslSocket* sslSocket() const;
-    void connectToSecureHost(const QString& hostName, quint16 port = 465);
-    void connectToSecureHost(const QHostAddress& address, quint16 port = 465);
+    void connectToSecureHost(const QString& hostName, quint16 port = 995);
+    void connectToSecureHost(const QHostAddress& address, quint16 port = 995);
 #endif
 
-    bool hasExtension(const QString& extension);
-    QString extensionData(const QString& extension);
+    bool isConnected() const;
 
-    bool isAuthMethodEnabled(AuthType type) const;
-    void setAuthMethodEnabled(AuthType type, bool enable);
+    QxtPop3StatReply* stat(int timeout=3000);
+    QxtPop3ListReply* messageList(int timeout=100000);
+    QxtPop3RetrReply* retrieveMessage(int which, int timeout=300000);
+//    QxtPop3Reply* retrieveAll(QList<QxtMailMessage>& list, int timeout=300000);
+    QxtPop3Reply* deleteMessage(int which, int timeout=100000);
+//    QxtPop3Reply* deleteAll(int timeout=100000);
+    QxtPop3Reply* reset(int timeout=10000);
+//    QxtPop3TopReply* top(int which, int lines, int timeout=100000);
+    QxtPop3Reply* quit(int timeout=3000);
+
+    void clearReplies();
+
 
 Q_SIGNALS:
     void connected();
-    void connectionFailed();
     void connectionFailed( const QByteArray & msg );
     void encrypted();
-    void encryptionFailed();
     void encryptionFailed( const QByteArray & msg );
     void authenticated();
-    void authenticationFailed();
     void authenticationFailed( const QByteArray & msg );
 
-    void senderRejected(int mailID, const QString& address );
-    void senderRejected(int mailID, const QString& address, const QByteArray & msg );
-    void recipientRejected(int mailID, const QString& address );
-    void recipientRejected(int mailID, const QString& address, const QByteArray & msg );
-    void mailFailed(int mailID, int errorCode);
-    void mailFailed(int mailID, int errorCode, const QByteArray & msg);
-    void mailSent(int mailID);
-
-    void finished();
     void disconnected();
 
 private:
-    QXT_DECLARE_PRIVATE(QxtSmtp)
+    QXT_DECLARE_PRIVATE(QxtPop3)
+    Q_DISABLE_COPY(QxtPop3)
 };
 
-#endif // QXTSMTP_H
+#endif // MAILPOP3_H

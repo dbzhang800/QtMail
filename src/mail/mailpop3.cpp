@@ -43,9 +43,9 @@
    the result of the command once finished, if applicable).
  */
 
-#include "qxtpop3.h"
-#include "qxtpop3_p.h"
-#include "qxtpop3reply_p.h"
+#include "mailpop3.h"
+#include "mailpop3_p.h"
+#include "mailpop3reply_p.h"
 
 #include <QTcpSocket>
 #include <QNetworkInterface>

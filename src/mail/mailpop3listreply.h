@@ -1,4 +1,4 @@
-#ifndef QXTMAILMESSAGE_H
+#ifndef MAILPOP3LISTREPLY_H
 /****************************************************************************
 ** Copyright (c) 2006 - 2011, the LibQxt project.
 ** See the Qxt AUTHORS file for a list of authors and copyright holders.
@@ -29,68 +29,17 @@
 ** <http://libqxt.org>  <foundation@libqxt.org>
 *****************************************************************************/
 
-#define QXTMAILMESSAGE_H
+#define MAILPOP3LISTREPLY_H
 
-#include "qxtglobal.h"
-#include "qxtmailattachment.h"
-
-#include <QStringList>
-#include <QHash>
-#include <QMetaType>
-#include <QSharedDataPointer>
-
-struct QxtMailMessagePrivate;
-class Q_MAIL_EXPORT QxtMailMessage
+#include "mailpop3reply.h"
+class Q_MAIL_EXPORT QxtPop3ListReply: public QxtPop3Reply
 {
+    friend class QxtPop3;
 public:
-    enum RecipientType
-    {
-        To,
-        Cc,
-        Bcc
-    };
-
-    QxtMailMessage();
-    QxtMailMessage(const QxtMailMessage& other);
-    QxtMailMessage(const QString& sender, const QString& recipient);
-    QxtMailMessage(const QByteArray& rfc2822);
-    QxtMailMessage& operator=(const QxtMailMessage& other);
-    ~QxtMailMessage();
-
-    QString sender() const;
-    void setSender(const QString&);
-
-    QString subject() const;
-    void setSubject(const QString&);
-
-    QString body() const;
-    void setBody(const QString&);
-
-    QStringList recipients(RecipientType type = To) const;
-    void addRecipient(const QString&, RecipientType type = To);
-    void removeRecipient(const QString&);
-
-    QHash<QString, QString> extraHeaders() const;
-    QString extraHeader(const QString&) const;
-    bool hasExtraHeader(const QString&) const;
-    void setExtraHeader(const QString& key, const QString& value);
-    void setExtraHeaders(const QHash<QString, QString>&);
-    void removeExtraHeader(const QString& key);
-
-    QHash<QString, QxtMailAttachment> attachments() const;
-    QxtMailAttachment attachment(const QString& filename) const;
-    void addAttachment(const QString& filename, const QxtMailAttachment& attach);
-    void removeAttachment(const QString& filename);
-
-    void setWordWrapLimit(int limit);
-    void setWordWrapPreserveStartSpaces(bool state);
-
-    QByteArray rfc2822() const;
-    static QxtMailMessage fromRfc2822(const QByteArray&);
+    const QList<QxtPop3Reply::MessageInfo>& list() const;
 
 private:
-    QSharedDataPointer<QxtMailMessagePrivate> qxt_d;
+    QxtPop3ListReply(int timeout, QObject* parent = 0);
 };
-Q_DECLARE_TYPEINFO(QxtMailMessage, Q_MOVABLE_TYPE);
 
-#endif // QXTMAIL_H
+#endif // MAILPOP3LISTREPLY_H

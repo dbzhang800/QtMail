@@ -1,4 +1,4 @@
-
+#ifndef MAILPOP3STATREPLY_H
 /****************************************************************************
 ** Copyright (c) 2006 - 2011, the LibQxt project.
 ** See the Qxt AUTHORS file for a list of authors and copyright holders.
@@ -29,42 +29,19 @@
 ** <http://libqxt.org>  <foundation@libqxt.org>
 *****************************************************************************/
 
-#ifndef QXTHMAC_H
-#define QXTHMAC_H
+#define MAILPOP3STATREPLY_H
 
-#include <QtGlobal>
+#include "mailpop3reply.h"
 
-#if QT_VERSION < 0x040300
-#   warning QxtHmac requires Qt 4.3.0 or greater
-#else
-
-#include <QCryptographicHash>
-#include "qxtglobal.h"
-
-class QxtHmacPrivate;
-class Q_MAIL_EXPORT QxtHmac
+class Q_MAIL_EXPORT QxtPop3StatReply: public QxtPop3Reply
 {
+    friend class QxtPop3;
 public:
-    typedef QCryptographicHash::Algorithm Algorithm;
-
-    QxtHmac(QCryptographicHash::Algorithm algorithm);
-
-    void setKey(QByteArray key);
-    void reset();
-
-    void addData(const char* data, int length);
-    void addData(const QByteArray& data);
-
-    QByteArray innerHash() const;
-    QByteArray result();
-    bool verify(const QByteArray& otherInner);
-
-    static QByteArray hash(const QByteArray& key, const QByteArray& data, Algorithm algorithm);
-    static bool verify(const QByteArray& key, const QByteArray& hmac, const QByteArray& inner, Algorithm algorithm);
+    int count() const;
+    int size() const;
 
 private:
-    QXT_DECLARE_PRIVATE(QxtHmac)
+    QxtPop3StatReply(int timeout, QObject* parent = 0);
 };
 
-#endif
-#endif
+#endif // MAILPOP3STATREPLY_H

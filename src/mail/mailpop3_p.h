@@ -1,4 +1,4 @@
-#ifndef QXTMAILATTACHMENT_H
+#ifndef MAILPOP3_P_H
 /****************************************************************************
 ** Copyright (c) 2006 - 2011, the LibQxt project.
 ** See the Qxt AUTHORS file for a list of authors and copyright holders.
@@ -29,52 +29,49 @@
 ** <http://libqxt.org>  <foundation@libqxt.org>
 *****************************************************************************/
 
-#define QXTMAILATTACHMENT_H
+#define MAILPOP3_P_H
 
-#include "qxtglobal.h"
 
-#include <QStringList>
-#include <QHash>
-#include <QByteArray>
-#include <QMetaType>
-#include <QSharedDataPointer>
+#include "mailpop3.h"
 
-class QxtMailAttachmentPrivate;
-class Q_MAIL_EXPORT QxtMailAttachment
+#include <QQueue>
+
+class QxtPop3Private : public QObject, public QxtPrivate<QxtPop3>
 {
+    Q_OBJECT
 public:
-    QxtMailAttachment();
-    QxtMailAttachment(const QxtMailAttachment& other);
-    QxtMailAttachment(const QByteArray& content, const QString& contentType = QStringLiteral("application/octet-stream"));
-    QxtMailAttachment(QIODevice* content, const QString& contentType = QStringLiteral("application/octet-stream"));
-    QxtMailAttachment& operator=(const QxtMailAttachment& other);
-    ~QxtMailAttachment();
-    static QxtMailAttachment fromFile(const QString& filename);
+    QxtPop3Private();
 
-    QIODevice* content() const;
-    void setContent(const QByteArray& content);
-    void setContent(QIODevice* content);
+    QXT_DECLARE_PUBLIC(QxtPop3)
 
-    bool deleteContent() const;
-    void setDeleteContent(bool enable);
+    enum Pop3State
+    {
+        Disconnected,
+        StartState,
+        Busy,
+        Ready
+    };
 
-    QString contentType() const;
-    void setContentType(const QString& contentType);
+    bool useSecure, disableStartTLS;
+    Pop3State state;// rather then an int use the enum.  makes sure invalid states are entered at compile time, and makes debugging easier
+    QByteArray buffer, username, password;
+    QQueue<QxtPop3Reply*> pending;
+    QxtPop3Reply* current;
 
-    QHash<QString, QString> extraHeaders() const;
-    QString extraHeader(const QString&) const;
-    bool hasExtraHeader(const QString&) const;
-    void setExtraHeader(const QString& key, const QString& value);
-    void setExtraHeaders(const QHash<QString, QString>&);
-    void removeExtraHeader(const QString& key);
+#ifndef QT_NO_OPENSSL
+    QSslSocket* socket;
+#else
+    QTcpSocket* socket;
+#endif
 
-    QByteArray mimeData();
-    const QByteArray& rawData() const;
-    bool isText() const;
-
-private:
-    QSharedDataPointer<QxtMailAttachmentPrivate> qxt_d;
+public slots:
+    void socketError(QAbstractSocket::SocketError err);
+    void disconnected();
+    void socketRead();
+    void dequeue();
+    void terminate(int code);
+    void encrypted();
+    void authenticated();
 };
-Q_DECLARE_TYPEINFO(QxtMailAttachment, Q_MOVABLE_TYPE);
 
-#endif // QXTMAILATTACHMENT_H
+#endif // MAILPOP3_P_H

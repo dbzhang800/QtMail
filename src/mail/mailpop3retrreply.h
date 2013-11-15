@@ -1,4 +1,4 @@
-#ifndef QXTPOP3STATREPLY_H
+#ifndef MAILPOP3RETRREPLY_H
 /****************************************************************************
 ** Copyright (c) 2006 - 2011, the LibQxt project.
 ** See the Qxt AUTHORS file for a list of authors and copyright holders.
@@ -29,19 +29,18 @@
 ** <http://libqxt.org>  <foundation@libqxt.org>
 *****************************************************************************/
 
-#define QXTPOP3STATREPLY_H
+#define MAILPOP3RETRREPLY_H
 
-#include "qxtpop3reply.h"
-
-class Q_MAIL_EXPORT QxtPop3StatReply: public QxtPop3Reply
+#include "mailpop3reply.h"
+class QxtMailMessage;
+class Q_MAIL_EXPORT QxtPop3RetrReply: public QxtPop3Reply
 {
     friend class QxtPop3;
 public:
-    int count() const;
-    int size() const;
+    QxtMailMessage* message();
 
 private:
-    QxtPop3StatReply(int timeout, QObject* parent = 0);
+    QxtPop3RetrReply(int which, int timeout, QObject* parent = 0);
 };
 
-#endif // QXTPOP3STATREPLY_H
+#endif // MAILPOP3RETRREPLY_H

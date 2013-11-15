@@ -5,25 +5,25 @@ QT += network
 !build_mail_lib:DEFINES += MAIL_NO_LIB
 
 HEADERS += \
-    $$PWD/qxthmac.h \
-    $$PWD/qxtmail_p.h \
-    $$PWD/qxtmailattachment.h \
-    $$PWD/qxtmailmessage.h \
-    $$PWD/qxtsmtp.h \
-    $$PWD/qxtsmtp_p.h \
-    $$PWD/qxtglobal.h \
-    $$PWD/qxtpop3.h \
-    $$PWD/qxtpop3_p.h \
-    $$PWD/qxtpop3listreply.h \
-    $$PWD/qxtpop3reply.h \
-    $$PWD/qxtpop3reply_p.h \
-    $$PWD/qxtpop3retrreply.h \
-    $$PWD/qxtpop3statreply.h
+    $$PWD/mailhmac.h \
+    $$PWD/mailutility_p.h \
+    $$PWD/mailattachment.h \
+    $$PWD/mailmessage.h \
+    $$PWD/mailsmtp.h \
+    $$PWD/mailsmtp_p.h \
+    $$PWD/mailglobal.h \
+    $$PWD/mailpop3.h \
+    $$PWD/mailpop3_p.h \
+    $$PWD/mailpop3listreply.h \
+    $$PWD/mailpop3reply.h \
+    $$PWD/mailpop3reply_p.h \
+    $$PWD/mailpop3retrreply.h \
+    $$PWD/mailpop3statreply.h
 
 SOURCES += \
-    $$PWD/qxthmac.cpp \
-    $$PWD/qxtmailattachment.cpp \
-    $$PWD/qxtmailmessage.cpp \
-    $$PWD/qxtsmtp.cpp \
-    $$PWD/qxtpop3.cpp \
-    $$PWD/qxtpop3reply.cpp
+    $$PWD/mailhmac.cpp \
+    $$PWD/mailattachment.cpp \
+    $$PWD/mailmessage.cpp \
+    $$PWD/mailsmtp.cpp \
+    $$PWD/mailpop3.cpp \
+    $$PWD/mailpop3reply.cpp

@@ -1,4 +1,4 @@
-#ifndef QXTPOP3LISTREPLY_H
+#ifndef MAILUTILITY_P_H
 /****************************************************************************
 ** Copyright (c) 2006 - 2011, the LibQxt project.
 ** See the Qxt AUTHORS file for a list of authors and copyright holders.
@@ -29,17 +29,12 @@
 ** <http://libqxt.org>  <foundation@libqxt.org>
 *****************************************************************************/
 
-#define QXTPOP3LISTREPLY_H
+#define MAILUTILITY_P_H
 
-#include "qxtpop3reply.h"
-class Q_MAIL_EXPORT QxtPop3ListReply: public QxtPop3Reply
-{
-    friend class QxtPop3;
-public:
-    const QList<QxtPop3Reply::MessageInfo>& list() const;
+#include <QByteArray>
 
-private:
-    QxtPop3ListReply(int timeout, QObject* parent = 0);
-};
+QByteArray qxt_fold_mime_header(const QString& key, const QString& value, QTextCodec* latin1,
+                                const QByteArray& prefix = QByteArray());
+bool isTextMedia(const QString& contentType);
 
-#endif // QXTPOP3LISTREPLY_H
+#endif // MAILUTILITY_P_H

@@ -29,8 +29,8 @@
 ** <http://libqxt.org>  <foundation@libqxt.org>
 *****************************************************************************/
 
-#ifndef QXTGLOBAL_H
-#define QXTGLOBAL_H
+#ifndef MAILGLOBAL_H
+#define MAILGLOBAL_H
 
 #include <QtGlobal>
 
@@ -138,4 +138,4 @@ private:
     QxtPrivate<PUB>* pvt;
 };
 
-#endif // QXT_GLOBAL
+#endif // MAILGLOBAL_H

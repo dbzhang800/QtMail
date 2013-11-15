@@ -38,9 +38,9 @@
 
 
 
-#include "qxtsmtp.h"
-#include "qxtsmtp_p.h"
-#include "qxthmac.h"
+#include "mailsmtp.h"
+#include "mailsmtp_p.h"
+#include "mailhmac.h"
 #include <QStringList>
 #include <QTcpSocket>
 #include <QNetworkInterface>

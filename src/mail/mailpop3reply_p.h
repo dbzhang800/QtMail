@@ -1,4 +1,4 @@
-#ifndef QXTPOP3COMMAND_P_H
+#ifndef MAILPOP3LISTREPLY_P_H
 /****************************************************************************
 ** Copyright (c) 2006 - 2011, the LibQxt project.
 ** See the Qxt AUTHORS file for a list of authors and copyright holders.
@@ -29,9 +29,9 @@
 ** <http://libqxt.org>  <foundation@libqxt.org>
 *****************************************************************************/
 
-#define QXTPOP3COMMAND_P_H
+#define MAILPOP3LISTREPLY_P_H
 
-#include "qxtpop3reply.h"
+#include "mailpop3reply.h"
 
 #include <QTimer>
 
@@ -123,4 +123,4 @@ private:
     QxtPop3QuitReply(int timeout, QObject* parent = 0);
 };
 
-#endif // QXTPOP3COMMAND_P_H
+#endif // MAILPOP3LISTREPLY_P_H

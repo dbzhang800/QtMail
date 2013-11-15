@@ -2,7 +2,7 @@
 #define MAINWINDOW_H
 
 #include "ui_mainwindow.h"
-#include <QxtPop3>
+#include "mailpop3.h"
 #include <QMainWindow>
 #include <QPair>
 #include <QSettings>

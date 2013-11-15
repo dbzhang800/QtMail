@@ -30,12 +30,12 @@
 *****************************************************************************/
 
 
-#include "qxtpop3reply.h"
-#include "qxtpop3reply_p.h"
-#include "qxtpop3statreply.h"
-#include "qxtpop3listreply.h"
-#include "qxtpop3retrreply.h"
-#include "qxtpop3_p.h"
+#include "mailpop3reply.h"
+#include "mailpop3reply_p.h"
+#include "mailpop3statreply.h"
+#include "mailpop3listreply.h"
+#include "mailpop3retrreply.h"
+#include "mailpop3_p.h"
 #include <QTextStream>
 #ifndef QT_NO_OPENSSL
 #    include <QSslSocket>

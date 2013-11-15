@@ -1,4 +1,4 @@
-#ifndef QXTPOP3_P_H
+#ifndef MAILMESSAGE_H
 /****************************************************************************
 ** Copyright (c) 2006 - 2011, the LibQxt project.
 ** See the Qxt AUTHORS file for a list of authors and copyright holders.
@@ -29,49 +29,68 @@
 ** <http://libqxt.org>  <foundation@libqxt.org>
 *****************************************************************************/
 
-#define QXTPOP3_P_H
+#define MAILMESSAGE_H
 
+#include "mailglobal.h"
+#include "mailattachment.h"
 
-#include "qxtpop3.h"
+#include <QStringList>
+#include <QHash>
+#include <QMetaType>
+#include <QSharedDataPointer>
 
-#include <QQueue>
-
-class QxtPop3Private : public QObject, public QxtPrivate<QxtPop3>
+struct QxtMailMessagePrivate;
+class Q_MAIL_EXPORT QxtMailMessage
 {
-    Q_OBJECT
 public:
-    QxtPop3Private();
-
-    QXT_DECLARE_PUBLIC(QxtPop3)
-
-    enum Pop3State
+    enum RecipientType
     {
-        Disconnected,
-        StartState,
-        Busy,
-        Ready
+        To,
+        Cc,
+        Bcc
     };
 
-    bool useSecure, disableStartTLS;
-    Pop3State state;// rather then an int use the enum.  makes sure invalid states are entered at compile time, and makes debugging easier
-    QByteArray buffer, username, password;
-    QQueue<QxtPop3Reply*> pending;
-    QxtPop3Reply* current;
+    QxtMailMessage();
+    QxtMailMessage(const QxtMailMessage& other);
+    QxtMailMessage(const QString& sender, const QString& recipient);
+    QxtMailMessage(const QByteArray& rfc2822);
+    QxtMailMessage& operator=(const QxtMailMessage& other);
+    ~QxtMailMessage();
 
-#ifndef QT_NO_OPENSSL
-    QSslSocket* socket;
-#else
-    QTcpSocket* socket;
-#endif
+    QString sender() const;
+    void setSender(const QString&);
 
-public slots:
-    void socketError(QAbstractSocket::SocketError err);
-    void disconnected();
-    void socketRead();
-    void dequeue();
-    void terminate(int code);
-    void encrypted();
-    void authenticated();
+    QString subject() const;
+    void setSubject(const QString&);
+
+    QString body() const;
+    void setBody(const QString&);
+
+    QStringList recipients(RecipientType type = To) const;
+    void addRecipient(const QString&, RecipientType type = To);
+    void removeRecipient(const QString&);
+
+    QHash<QString, QString> extraHeaders() const;
+    QString extraHeader(const QString&) const;
+    bool hasExtraHeader(const QString&) const;
+    void setExtraHeader(const QString& key, const QString& value);
+    void setExtraHeaders(const QHash<QString, QString>&);
+    void removeExtraHeader(const QString& key);
+
+    QHash<QString, QxtMailAttachment> attachments() const;
+    QxtMailAttachment attachment(const QString& filename) const;
+    void addAttachment(const QString& filename, const QxtMailAttachment& attach);
+    void removeAttachment(const QString& filename);
+
+    void setWordWrapLimit(int limit);
+    void setWordWrapPreserveStartSpaces(bool state);
+
+    QByteArray rfc2822() const;
+    static QxtMailMessage fromRfc2822(const QByteArray&);
+
+private:
+    QSharedDataPointer<QxtMailMessagePrivate> qxt_d;
 };
+Q_DECLARE_TYPEINFO(QxtMailMessage, Q_MOVABLE_TYPE);
 
-#endif // QXTPOP3_P_H
+#endif // MAILMESSAGE_H
