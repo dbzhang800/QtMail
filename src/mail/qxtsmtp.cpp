@@ -222,7 +222,7 @@ void QxtSmtpPrivate::socketRead()
         case HeloSent:
         case EhloSent:
         case EhloGreetReceived:
-            parseEhlo(code, (line[3] != ' '), line.mid(4));
+            parseEhlo(code, (line[3] != ' '), QString::fromLatin1(line.mid(4)));
             break;
 #ifndef QT_NO_OPENSSL
         case StartTLSSent:
@@ -365,7 +365,7 @@ void QxtSmtpPrivate::parseEhlo(const QByteArray& code, bool cont, const QString&
             state = EhloDone;
     }
     if (state != EhloDone) return;
-    if (extensions.contains("STARTTLS") && !disableStartTLS)
+    if (extensions.contains(QStringLiteral("STARTTLS")) && !disableStartTLS)
     {
         startTLS();
     }
@@ -387,23 +387,23 @@ void QxtSmtpPrivate::startTLS()
 
 void QxtSmtpPrivate::authenticate()
 {
-    if (!extensions.contains("AUTH") || username.isEmpty() || password.isEmpty())
+    if (!extensions.contains(QStringLiteral("AUTH")) || username.isEmpty() || password.isEmpty())
     {
         state = Authenticated;
         emit qxt_p().authenticated();
     }
     else
     {
-        QStringList auth = extensions["AUTH"].toUpper().split(' ', QString::SkipEmptyParts);
-        if (auth.contains("CRAM-MD5") && (allowedAuthTypes & QxtSmtp::AuthCramMD5))
+        QStringList auth = extensions[QStringLiteral("AUTH")].toUpper().split(' ', QString::SkipEmptyParts);
+        if (auth.contains(QStringLiteral("CRAM-MD5")) && (allowedAuthTypes & QxtSmtp::AuthCramMD5))
         {
             authCramMD5();
         }
-        else if (auth.contains("PLAIN") && (allowedAuthTypes & QxtSmtp::AuthPlain))
+        else if (auth.contains(QStringLiteral("PLAIN")) && (allowedAuthTypes & QxtSmtp::AuthPlain))
         {
             authPlain();
         }
-        else if (auth.contains("LOGIN") && (allowedAuthTypes & QxtSmtp::AuthLogin))
+        else if (auth.contains(QStringLiteral("LOGIN")) && (allowedAuthTypes & QxtSmtp::AuthLogin))
         {
             authLogin();
         }
@@ -556,7 +556,7 @@ void QxtSmtpPrivate::sendNext()
     // interprets any string starting with an uppercase R as a request
     // to renegotiate the SSL connection.
     socket->write("mail from:<" + qxt_extract_address(msg.sender()) + ">\r\n");
-    if (extensions.contains("PIPELINING"))  // almost all do nowadays
+    if (extensions.contains(QStringLiteral("PIPELINING")))  // almost all do nowadays
     {
         foreach(const QString& rcpt, recipients)
         {

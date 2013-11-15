@@ -60,7 +60,7 @@ public:
     {
         content = 0;
         deleteContent = false;
-        contentType = "text/plain";
+        contentType = QStringLiteral("text/plain");
     }
 
     ~QxtMailAttachmentPrivate()
@@ -189,7 +189,7 @@ QByteArray QxtMailAttachment::mimeData()
     QByteArray rv = "Content-Type: " + qxt_d->contentType.toLatin1() + "\r\nContent-Transfer-Encoding: base64\r\n";
     foreach(const QString& r, qxt_d->extraHeaders.keys())
     {
-        rv += qxt_fold_mime_header(r.toLatin1(), extraHeader(r), latin1);
+        rv += qxt_fold_mime_header(r, extraHeader(r), latin1);
     }
     rv += "\r\n";
 

@@ -229,11 +229,11 @@ void QxtMailMessage::addAttachment(const QString& filename, const QxtMailAttachm
     {
         qWarning() << "QxtMailMessage::addAttachment: " << filename << " already in use";
         int i = 1;
-        while (qxt_d->attachments.contains(filename + "." + QString::number(i)))
+        while (qxt_d->attachments.contains(filename + QLatin1Char('.') + QString::number(i)))
         {
             i++;
         }
-        qxt_d->attachments[filename+"."+QString::number(i)] = attach;
+        qxt_d->attachments[filename+QLatin1Char('.')+QString::number(i)] = attach;
     }
     else
     {
@@ -270,7 +270,7 @@ QByteArray qxt_fold_mime_header(const QString& key, const QString& value, QTextC
     QByteArray rv = "";
     QByteArray line = key.toLatin1() + ": ";
     if (!prefix.isEmpty()) line += prefix;
-    if (!value.contains("=?") && latin1->canEncode(value))
+    if (!value.contains(QStringLiteral("=?")) && latin1->canEncode(value))
     {
         bool firstWord = true;
         foreach(const QByteArray& word, value.toLatin1().split(' '))
@@ -345,9 +345,9 @@ QByteArray qxt_fold_mime_header(const QString& key, const QString& value, QTextC
 QByteArray QxtMailMessage::rfc2822() const
 {
     // Use quoted-printable if requested
-    bool useQuotedPrintable = (extraHeader("Content-Transfer-Encoding").toLower() == "quoted-printable");
+    bool useQuotedPrintable = (extraHeader(QStringLiteral("Content-Transfer-Encoding")).toLower() == QLatin1String("quoted-printable"));
     // Use base64 if requested
-    bool useBase64 = (extraHeader("Content-Transfer-Encoding").toLower() == "base64");
+    bool useBase64 = (extraHeader(QStringLiteral("Content-Transfer-Encoding")).toLower() == QLatin1String("base64"));
     // Check to see if plain text is ASCII-clean; assume it isn't if QP or base64 was requested
     QTextCodec* latin1 = QTextCodec::codecForName("latin1");
     bool bodyIsAscii = latin1->canEncode(body()) && !useQuotedPrintable && !useBase64;
@@ -355,29 +355,29 @@ QByteArray QxtMailMessage::rfc2822() const
     QHash<QString, QxtMailAttachment> attach = attachments();
     QByteArray rv;
 
-    if (!sender().isEmpty() && !hasExtraHeader("From"))
+    if (!sender().isEmpty() && !hasExtraHeader(QStringLiteral("From")))
     {
-        rv += qxt_fold_mime_header("From", sender(), latin1);
+        rv += qxt_fold_mime_header(QStringLiteral("From"), sender(), latin1);
     }
 
     if (!qxt_d->rcptTo.isEmpty())
     {
-        rv += qxt_fold_mime_header("To", qxt_d->rcptTo.join(", "), latin1);
+        rv += qxt_fold_mime_header(QStringLiteral("To"), qxt_d->rcptTo.join(QStringLiteral(", ")), latin1);
     }
 
     if (!qxt_d->rcptCc.isEmpty())
     {
-        rv += qxt_fold_mime_header("Cc", qxt_d->rcptCc.join(", "), latin1);
+        rv += qxt_fold_mime_header(QStringLiteral("Cc"), qxt_d->rcptCc.join(QStringLiteral(", ")), latin1);
     }
 
     if (!subject().isEmpty())
     {
-        rv += qxt_fold_mime_header("Subject", subject(), latin1);
+        rv += qxt_fold_mime_header(QStringLiteral("Subject"), subject(), latin1);
     }
 
     if (!bodyIsAscii)
     {
-        if (!hasExtraHeader("MIME-Version") && !attach.count())
+        if (!hasExtraHeader(QStringLiteral("MIME-Version")) && !attach.count())
             rv += "MIME-Version: 1.0\r\n";
 
         // If no transfer encoding has been requested, guess.
@@ -401,12 +401,12 @@ QByteArray QxtMailMessage::rfc2822() const
     {
         if (qxt_d->boundary.isEmpty())
             qxt_d->boundary = QUuid::createUuid().toString().toLatin1().replace("{", "").replace("}", "");
-        if (!hasExtraHeader("MIME-Version"))
+        if (!hasExtraHeader(QStringLiteral("MIME-Version")))
             rv += "MIME-Version: 1.0\r\n";
-        if (!hasExtraHeader("Content-Type"))
+        if (!hasExtraHeader(QStringLiteral("Content-Type")))
             rv += "Content-Type: multipart/mixed; boundary=" + qxt_d->boundary + "\r\n";
     }
-    else if (!bodyIsAscii && !hasExtraHeader("Content-Transfer-Encoding"))
+    else if (!bodyIsAscii && !hasExtraHeader(QStringLiteral("Content-Transfer-Encoding")))
     {
         if (!useQuotedPrintable)
         {
@@ -422,12 +422,12 @@ QByteArray QxtMailMessage::rfc2822() const
 
     foreach(const QString& r, qxt_d->extraHeaders.keys())
     {
-        if ((r.toLower() == "content-type" || r.toLower() == "content-transfer-encoding") && attach.count())
+        if ((r.toLower() == QLatin1String("content-type") || r.toLower() == QLatin1String("content-transfer-encoding")) && attach.count())
         {
             // Since we're in multipart mode, we'll be outputting this later
             continue;
         }
-        rv += qxt_fold_mime_header(r.toLatin1(), extraHeader(r), latin1);
+        rv += qxt_fold_mime_header(r, extraHeader(r), latin1);
     }
 
     rv += "\r\n";
@@ -437,13 +437,13 @@ QByteArray QxtMailMessage::rfc2822() const
         // we're going to have attachments, so output the lead-in for the message body
         rv += "This is a message with multiple parts in MIME format.\r\n";
         rv += "--" + qxt_d->boundary + "\r\nContent-Type: ";
-        if (hasExtraHeader("Content-Type"))
-            rv += extraHeader("Content-Type").toLatin1() + "\r\n";
+        if (hasExtraHeader(QStringLiteral("Content-Type")))
+            rv += extraHeader(QStringLiteral("Content-Type")).toLatin1() + "\r\n";
         else
             rv += "text/plain; charset=UTF-8\r\n";
-        if (hasExtraHeader("Content-Transfer-Encoding"))
+        if (hasExtraHeader(QStringLiteral("Content-Transfer-Encoding")))
         {
-            rv += "Content-Transfer-Encoding: " + extraHeader("Content-Transfer-Encoding").toLatin1() + "\r\n";
+            rv += "Content-Transfer-Encoding: " + extraHeader(QStringLiteral("Content-Transfer-Encoding")).toLatin1() + "\r\n";
         }
         else if (!bodyIsAscii)
         {
@@ -573,7 +573,7 @@ QByteArray QxtMailMessage::rfc2822() const
         foreach(const QString& filename, attach.keys())
         {
             rv += "--" + qxt_d->boundary + "\r\n";
-            rv += qxt_fold_mime_header("Content-Disposition", QDir(filename).dirName(), latin1, "attachment; filename=");
+            rv += qxt_fold_mime_header(QStringLiteral("Content-Disposition"), QDir(filename).dirName(), latin1, "attachment; filename=");
             rv += attach[filename].mimeData();
         }
         rv += "--" + qxt_d->boundary + "--\r\n";
@@ -631,7 +631,7 @@ void QxtRfc2822Parser::parseEntity(const QByteArray& buffer, QHash<QString,QStri
             parseHeader(line, headers);
             break;
         case Body:
-            body.append(line + "\r\n");
+            body.append(QString::fromLatin1(line + "\r\n"));
             break;
         default:
             break;
@@ -641,11 +641,12 @@ void QxtRfc2822Parser::parseEntity(const QByteArray& buffer, QHash<QString,QStri
 
 void QxtRfc2822Parser::parseHeader(const QByteArray& line, QHash<QString, QString>& headers )
 {
-    QRegExp spRe("^[ \\t]");
-    QRegExp hdrRe("^([!-9;-~]+):[ \\t](.*)$");
-    if (spRe.indexIn(line) == 0) // continuation line
+    QRegExp spRe(QStringLiteral("^[ \\t]"));
+    QRegExp hdrRe(QStringLiteral("^([!-9;-~]+):[ \\t](.*)$"));
+    QString lineStr = QString::fromLatin1(line);
+    if (spRe.indexIn(lineStr) == 0) // continuation line
     {
-        currentHeaderValue.append(line);
+        currentHeaderValue.append(lineStr);
     }
     else
     {
@@ -657,7 +658,7 @@ void QxtRfc2822Parser::parseHeader(const QByteArray& line, QHash<QString, QStrin
             currentHeaderKey = QString();
             currentHeaderValue.clear();
         }
-        if (hdrRe.exactMatch(line))
+        if (hdrRe.exactMatch(lineStr))
         {
             currentHeaderKey = hdrRe.cap(1);
             currentHeaderValue.append(hdrRe.cap(2));
@@ -671,11 +672,11 @@ void QxtRfc2822Parser::parseHeader(const QByteArray& line, QHash<QString, QStrin
 void QxtRfc2822Parser::parseBody(QxtMailMessagePrivate* msg)
 {
     QString& body = msg->body;
-    if (!msg->extraHeaders.contains("content-type")) return;
-    QString contentType = msg->extraHeaders["content-type"];
-    if (!contentType.indexOf("multipart",0,Qt::CaseInsensitive) == 0) return;
+    if (!msg->extraHeaders.contains(QStringLiteral("content-type"))) return;
+    QString contentType = msg->extraHeaders[QStringLiteral("content-type")];
+    if (!contentType.indexOf(QStringLiteral("multipart"), 0, Qt::CaseInsensitive) == 0) return;
     // extract the boundary delimiter
-    QRegExp boundaryRe("boundary=\"?([^\"]*)\"?(?=;|$)");
+    QRegExp boundaryRe(QStringLiteral("boundary=\"?([^\"]*)\"?(?=;|$)"));
     if (boundaryRe.indexIn(contentType) == -1)
     {
         qDebug("Boundary regexp didn't match for %s", contentType.toLatin1().data());
@@ -683,7 +684,7 @@ void QxtRfc2822Parser::parseBody(QxtMailMessagePrivate* msg)
     }
     QString boundary = boundaryRe.cap(1);
 //    qDebug("Boundary=%s", boundary.toLatin1().data());
-    QRegExp bndRe(QString("(^|\\r?\\n)--%1(--)?[ \\t]*\\r?\\n").arg(QRegExp::escape(boundary)));   // find boundary delimiters in the body
+    QRegExp bndRe(QStringLiteral("(^|\\r?\\n)--%1(--)?[ \\t]*\\r?\\n").arg(QRegExp::escape(boundary)));   // find boundary delimiters in the body
 //    qDebug("search for %s", bndRe.pattern().toLatin1().data());
     if (!bndRe.isValid())
     {
@@ -731,7 +732,7 @@ void QxtRfc2822Parser::parseBody(QxtMailMessagePrivate* msg)
 //                qDebug("%s: %s", key.toLatin1().data(), partHeaders[key].toLatin1().data());
 //            }
 //            qDebug("Part body:\n%s", partBody.toLatin1().data());
-            if (partHeaders.contains("content-disposition") && partHeaders["content-disposition"].indexOf("attachment;") == 0)
+            if (partHeaders.contains(QStringLiteral("content-disposition")) && partHeaders[QStringLiteral("content-disposition")].indexOf(QStringLiteral("attachment;")) == 0)
             {
 //                qDebug("Attachment!");
                 QString filename;
@@ -742,7 +743,7 @@ void QxtRfc2822Parser::parseBody(QxtMailMessagePrivate* msg)
                     delete attachment;
                 }
                 // strip part from body
-                body.replace(beginFirst, beginSecond - beginFirst, "");
+                body.replace(beginFirst, beginSecond - beginFirst, QStringLiteral(""));
                 beginSecond = beginFirst;
                 endSecond = endFirst;
             }
@@ -755,7 +756,7 @@ void QxtRfc2822Parser::parseBody(QxtMailMessagePrivate* msg)
 QString QxtRfc2822Parser::unfoldValue(QStringList& folded)
 {
     QString unfolded;
-    QRegExp encRe("=\\?([^? \\t]+)\\?([qQbB])\\?([^? \\t]+)\\?="); // search for an encoded word
+    QRegExp encRe(QStringLiteral("=\\?([^? \\t]+)\\?([qQbB])\\?([^? \\t]+)\\?=")); // search for an encoded word
     QStringList::iterator i;
     for (i = folded.begin(); i != folded.end(); ++i)
     {
@@ -767,7 +768,7 @@ QString QxtRfc2822Parser::unfoldValue(QStringList& folded)
             offset = encRe.pos() + decoded.length(); // set offset after the inserted decoded word
         }
     }
-    unfolded = folded.join("");
+    unfolded = folded.join(QString());
     return unfolded;
 }
 
@@ -775,7 +776,7 @@ QString QxtRfc2822Parser::decode(const QString& charset, const QString& encoding
 {
     QString rv;
     QByteArray buf;
-    if (encoding == "q")
+    if (encoding == QLatin1String("q"))
     {
         QByteArray src = encoded.toLatin1();
         int len = src.length();
@@ -799,7 +800,7 @@ QString QxtRfc2822Parser::decode(const QString& charset, const QString& encoding
             }
         }
     }
-    else if (encoding == "b")
+    else if (encoding == QLatin1String("b"))
     {
         buf = QByteArray::fromBase64(encoded.toLatin1());
     }
@@ -815,38 +816,38 @@ QxtMailAttachment* QxtRfc2822Parser::parseAttachment(const QHash<QString,QString
 {
     static int count = 1;
     QByteArray content;
-    QRegExp filenameRe(";\\s+filename=\"?([^\"]*)\"?(?=;|$)");
-    if (filenameRe.indexIn(headers["content-disposition"]) != -1)
+    QRegExp filenameRe(QStringLiteral(";\\s+filename=\"?([^\"]*)\"?(?=;|$)"));
+    if (filenameRe.indexIn(headers[QStringLiteral("content-disposition")]) != -1)
     {
         filename = filenameRe.cap(1);
     }
     else
     {
-        filename = QString("attachment%1").arg(count);
+        filename = QStringLiteral("attachment%1").arg(count);
     }
 //    qDebug("Attachment %s", filename.toLocal8Bit().data());
 
     QString ct;
-    if (headers.contains("content-type"))
+    if (headers.contains(QStringLiteral("content-type")))
     {
-        ct = headers["content-type"];
+        ct = headers[QStringLiteral("content-type")];
     }
     else
     {
-        ct = "application/octet-stream";
+        ct = QStringLiteral("application/octet-stream");
     }
 
     QString cte;
-    if (headers.contains("content-transfer-encoding"))
+    if (headers.contains(QStringLiteral("content-transfer-encoding")))
     {
-        cte = headers["content-transfer-encoding"].toLower();
+        cte = headers[QStringLiteral("content-transfer-encoding")].toLower();
 //        qDebug("Content-Transfer-Encoding: %s", cte.toLatin1().data());
     }
-    if ( cte == "base64")
+    if ( cte == QLatin1String("base64"))
     {
         content = QByteArray::fromBase64(body.toLatin1());
     }
-    else if (cte == "quoted-printable")
+    else if (cte == QStringLiteral("quoted-printable"))
     {
         QByteArray src = body.toLatin1();
         int len = src.length();
@@ -900,7 +901,7 @@ QxtMailAttachment* QxtRfc2822Parser::parseAttachment(const QHash<QString,QString
 bool isTextMedia(const QString& contentType)
 {
     // extract media type/sub-type part (e.g. text/plain, image/png...)
-    QRegExp mtRe("^([^;/]*)/([^;/]*)(?=;|$)");
+    QRegExp mtRe(QStringLiteral("^([^;/]*)/([^;/]*)(?=;|$)"));
     if (mtRe.indexIn(contentType) == -1)
     {
         qWarning("failed to parse %s for type/subtype", contentType.toLatin1().data());
@@ -908,28 +909,28 @@ bool isTextMedia(const QString& contentType)
     }
     QString type = mtRe.cap(1).toLower();
     QString subtype = mtRe.cap(2).toLower();
-    if (type == "text") return true;
-    if (type == "application" &&
-        (subtype == "x-csh" ||
-         subtype == "x-desktop" ||
-         subtype == "x-m4" ||
-         subtype == "x-perl" ||
-         subtype == "x-php" ||
-         subtype == "x-ruby" ||
-         subtype == "x-troff-man" ||
-         subtype == "xsd" ||
-         subtype == "xml-dtd" ||
-         subtype == "xml-external-parsed-entity" ||
-         subtype == "xslt+xml" ||
-         subtype == "xhtml+xml" ||
-         subtype == "pgp-keys" ||
-         subtype == "pgp-signature" ||
-         subtype == "javascript" ||
-         subtype == "ecmascript" ||
-         subtype == "docbook+xml" ||
-         subtype == "xml" ||
-         subtype == "html" ||
-         subtype == "x-shellscript")) return true;
-    if (type == "image" && subtype == "svg+xml") return true;
+    if (type == QLatin1String("text")) return true;
+    if (type == QLatin1String("application") &&
+        (subtype == QLatin1String("x-csh") ||
+         subtype == QLatin1String("x-desktop") ||
+         subtype == QLatin1String("x-m4") ||
+         subtype == QLatin1String("x-perl") ||
+         subtype == QLatin1String("x-php") ||
+         subtype == QLatin1String("x-ruby") ||
+         subtype == QLatin1String("x-troff-man") ||
+         subtype == QLatin1String("xsd") ||
+         subtype == QLatin1String("xml-dtd") ||
+         subtype == QLatin1String("xml-external-parsed-entity") ||
+         subtype == QLatin1String("xslt+xml") ||
+         subtype == QLatin1String("xhtml+xml") ||
+         subtype == QLatin1String("pgp-keys") ||
+         subtype == QLatin1String("pgp-signature") ||
+         subtype == QLatin1String("javascript") ||
+         subtype == QLatin1String("ecmascript") ||
+         subtype == QLatin1String("docbook+xml") ||
+         subtype == QLatin1String("xml") ||
+         subtype == QLatin1String("html") ||
+         subtype == QLatin1String("x-shellscript"))) return true;
+    if (type == QLatin1String("image") && subtype == QLatin1String("svg+xml")) return true;
     return false;
 }

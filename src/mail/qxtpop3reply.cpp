@@ -209,7 +209,7 @@ QByteArray QxtPop3StatReplyImpl::dialog(QByteArray received)
             m_reply.finish(QxtPop3Reply::OK);
         } else {
             m_reply.status = QxtPop3Reply::Error;
-            m_reply.errString = received;
+            m_reply.errString = QString::fromLatin1(received);
             m_reply.finish(QxtPop3Reply::Failed);
         }
         break;
@@ -258,14 +258,14 @@ QByteArray QxtPop3ListReplyImpl::dialog(QByteArray received)
             state = OKReceived;
         } else {
             m_reply.status = QxtPop3Reply::Error;
-            m_reply.errString = received;
+            m_reply.errString = QString::fromLatin1(received);
             m_reply.finish(QxtPop3Reply::Failed);
         }
         break;
     case OKReceived:
         {
-            QStringList words = QString(received).split(" ");
-            if (words[0] == ".")
+            QStringList words = QString::fromLatin1(received).split(QStringLiteral(" "));
+            if (words[0] == QLatin1String("."))
             {
                 m_reply.status = QxtPop3Reply::Completed;
                 m_reply.finish(QxtPop3Reply::OK);
@@ -330,7 +330,7 @@ QByteArray QxtPop3RetrReplyImpl::dialog(QByteArray received)
             state = RetrSent;
         } else {
             m_reply.status = QxtPop3Reply::Error;
-            m_reply.errString = received;
+            m_reply.errString = QString::fromLatin1(received);
             m_reply.finish(QxtPop3Reply::Failed);
         }
         break;
@@ -340,7 +340,7 @@ QByteArray QxtPop3RetrReplyImpl::dialog(QByteArray received)
             state = OKReceived;
         } else {
             m_reply.status = QxtPop3Reply::Error;
-            m_reply.errString = received;
+            m_reply.errString = QString::fromLatin1(received);
             m_reply.finish(QxtPop3Reply::Failed);
         }
         break;
@@ -408,7 +408,7 @@ QByteArray QxtPop3ResetReplyImpl::dialog(QByteArray received)
             m_reply.finish(QxtPop3Reply::OK);
         } else {
             m_reply.status = QxtPop3Reply::Error;
-            m_reply.errString = received;
+            m_reply.errString = QString::fromLatin1(received);
             m_reply.finish(QxtPop3Reply::Failed);
         }
         break;
@@ -458,7 +458,7 @@ QByteArray QxtPop3DeleReplyImpl::dialog(QByteArray received)
             m_reply.finish(QxtPop3Reply::OK);
         } else {
             m_reply.status = QxtPop3Reply::Error;
-            m_reply.errString = received;
+            m_reply.errString = QString::fromLatin1(received);
             m_reply.finish(QxtPop3Reply::Failed);
         }
         break;
@@ -576,7 +576,7 @@ QxtPop3Reply::Type QxtPop3Reply::type() const
 void QxtPop3Reply::cancel()
 {
     qxt_d().status = Error;
-    qxt_d().errString = "Canceled.";
+    qxt_d().errString = QStringLiteral("Canceled.");
     emit finished(Aborted);
 }
 
