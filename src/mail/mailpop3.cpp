@@ -54,7 +54,7 @@
 #endif
 
 
-QxtPop3Private::QxtPop3Private() : QObject(0), disableStartTLS(false)
+QxtPop3Private::QxtPop3Private() : QObject(0), disableStartTLS(false), current(0)
 {
     // empty ctor
 }
