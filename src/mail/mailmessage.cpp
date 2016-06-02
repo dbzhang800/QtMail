@@ -686,8 +686,12 @@ void QxtRfc2822Parser::parseBody(QxtMailMessagePrivate* msg)
     }
     QString boundary = boundaryRe.cap(1);
 //    qDebug("Boundary=%s", boundary.toLatin1().data());
+#if QT_VERSION < QT_VERSION_CHECK(5,0,0)
+	QRegExp bndRe(QString("(^|\\r?\\n)--%1(--)?[ \\t]*\\r?\\n").arg(QRegExp::escape(boundary)));   // find boundary delimiters in the body
+#else
     QRegExp bndRe(QStringLiteral("(^|\\r?\\n)--%1(--)?[ \\t]*\\r?\\n").arg(QRegExp::escape(boundary)));   // find boundary delimiters in the body
-//    qDebug("search for %s", bndRe.pattern().toLatin1().data());
+#endif
+	//    qDebug("search for %s", bndRe.pattern().toLatin1().data());
     if (!bndRe.isValid())
     {
         qDebug("regexp %s not valid ! %s", bndRe.pattern().toLatin1().data(), bndRe.errorString().toLatin1().data());
@@ -825,7 +829,11 @@ QxtMailAttachment* QxtRfc2822Parser::parseAttachment(const QHash<QString,QString
     }
     else
     {
+#if QT_VERSION < QT_VERSION_CHECK(5,0,0)
+		filename = QString("attachment%1").arg(count);
+#else
         filename = QStringLiteral("attachment%1").arg(count);
+#endif
     }
 //    qDebug("Attachment %s", filename.toLocal8Bit().data());
 

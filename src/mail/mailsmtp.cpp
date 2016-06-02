@@ -46,6 +46,109 @@
 #    include <QSslSocket>
 #endif
 
+#define QXT_SMTP_DEBUG 0
+#if QXT_SMTP_DEBUG
+# include <QDebug>
+# define smtpWrite(data) do { qDebug() << "SEND:" << data; socket->write((data)); } while(false)
+#else
+# define smtpWrite(data) socket->write((data))
+#endif
+
+QByteArray QxtSmtpResponse::domain() const
+{
+    if (textLines.isEmpty()) {
+        return QByteArray();
+    }
+    const QByteArray &buffer = textLines.at(0);
+    int spindex = buffer.indexOf(' ');
+    if (spindex == -1) {
+        return buffer.trimmed();
+    } else {
+        return buffer.mid(0, spindex).trimmed();
+    }
+}
+
+QByteArray QxtSmtpResponse::singleLine() const
+{
+    QByteArray result;
+    foreach (const QByteArray &line, textLines) {
+        if (result.size()) {
+            result += "\n";
+        }
+        result += line;
+    }
+    return result;
+}
+
+bool QxtSmtpResponseParser::feed(const QByteArray &data)
+{
+#if QXT_SMTP_DEBUG
+    qDebug() << "RECV:" << data;
+#endif
+    if (buffer.isEmpty()) { // prepare for fresh parse
+        state = StateStart;
+        lastIndex = 0;
+    }
+    buffer += data;
+    while (true) {
+        if (state == StateStart) {
+            state = StateFirst;
+            currentResponse = QxtSmtpResponse();
+        }
+        int rnindex = buffer.indexOf("\r\n", lastIndex);
+        if (rnindex == -1) {
+            return true;
+        }
+        bool ok;
+        if (rnindex - lastIndex < 3) { // code
+            break;
+        }
+        const char *line = buffer.constData() + lastIndex;
+        int statusCode = QByteArray::fromRawData(line, 3).toInt(&ok);
+        if (!ok || !statusCode) {
+            break;
+        }
+        if (state != StateFirst && statusCode != currentResponse.code) { // all codes must be the same
+            break;
+        }
+        currentResponse.code = statusCode;
+        char codeSep = line[3];
+
+        if (codeSep != '\r' && codeSep != ' ' && codeSep != '-') {
+            break; // invalid separator
+        }
+
+        if ((codeSep == ' ' && line[4] != '\r') || codeSep == '-') {
+            // we ignore SP before \r. it's by rfc
+            // it's text line after code
+            QByteArray text = QByteArray(line + 4, rnindex - lastIndex - 4);
+            if (text.isEmpty()) {
+                break;
+            }
+            currentResponse.textLines.append(text);
+        }
+
+        if (codeSep == ' ') { // last line
+            responses.enqueue(currentResponse);
+            if (rnindex + 2 != buffer.size()) { // unparsed data left.
+                if (usePipelining) {
+                    lastIndex = rnindex + 2;
+                    state = StateStart;
+                    continue;
+                }
+                // pipeling unsupported. error
+                break;
+            }
+            buffer.clear();
+            return true;
+        }
+        lastIndex = rnindex + 2;
+        state = StateNext;
+    }
+    return false;
+}
+
+
 QxtSmtpPrivate::QxtSmtpPrivate(QxtSmtp *q)
     : QObject(0), q_ptr(q)
     , allowedAuthTypes(QxtSmtp::AuthPlain | QxtSmtp::AuthLogin | QxtSmtp::AuthCramMD5)
@@ -204,22 +307,24 @@ void QxtSmtpPrivate::socketError(QAbstractSocket::SocketError err)
 
 void QxtSmtpPrivate::socketRead()
 {
-    buffer += socket->readAll();
-    while (true)
-    {
-        int pos = buffer.indexOf("\r\n");
-        if (pos < 0) return;
-        QByteArray line = buffer.left(pos);
-        buffer = buffer.mid(pos + 2);
-        QByteArray code = line.left(3);
+    if (!responseParser.feed(socket->readAll())) {
+        state = Disconnected;
+        emit q_func()->connectionFailed();
+        emit q_func()->connectionFailed("response parse error");
+        socket->disconnectFromHost();
+        return;
+    }
+
+    while (responseParser.hasResponse()) {
+        response = responseParser.takeResponse();
         switch (state)
         {
         case StartState:
-            if (code[0] != '2')
+            if (!response.hasGoodResponseCode())
             {
                 state = Disconnected;
                 emit q_func()->connectionFailed();
-                emit q_func()->connectionFailed(line);
+                emit q_func()->connectionFailed(response.textLines.value(0));
                 socket->disconnectFromHost();
             }
             else
@@ -229,12 +334,11 @@ void QxtSmtpPrivate::socketRead()
             break;
         case HeloSent:
         case EhloSent:
-        case EhloGreetReceived:
-            parseEhlo(code, (line[3] != ' '), QString::fromLatin1(line.mid(4)));
+            parseEhlo();
             break;
 #ifndef QT_NO_OPENSSL
         case StartTLSSent:
-            if (code == "220")
+            if (response.code == 220)
             {
                 socket->startClientEncryption();
                 ehlo();
@@ -249,10 +353,10 @@ void QxtSmtpPrivate::socketRead()
         case AuthUsernameSent:
             if (authType == QxtSmtp::AuthPlain) authPlain();
             else if (authType == QxtSmtp::AuthLogin) authLogin();
-            else authCramMD5(line.mid(4));
+            else authCramMD5();
             break;
         case AuthSent:
-            if (code[0] == '2')
+            if (response.hasGoodResponseCode())
             {
                 state = Authenticated;
                 emit q_func()->authenticated();
@@ -261,49 +365,49 @@ void QxtSmtpPrivate::socketRead()
             {
                 state = Disconnected;
                 emit q_func()->authenticationFailed();
-                emit q_func()->authenticationFailed( line );
+                emit q_func()->authenticationFailed( response.singleLine() );
                 socket->disconnectFromHost();
             }
             break;
         case MailToSent:
         case RcptAckPending:
-            if (code[0] != '2') {
-                emit q_func()->mailFailed( pending.first().first, code.toInt() );
-                emit q_func()->mailFailed(pending.first().first, code.toInt(), line);
-				// pending.removeFirst();
-				// DO NOT remove it, the body sent state needs this message to assigned the next mail failed message that will 
-				// the sendNext 
-				// a reset will be sent to clear things out
+            if (!response.hasGoodResponseCode()) {
+                emit q_func()->mailFailed( pending.first().first, response.code);
+                emit q_func()->mailFailed(pending.first().first, response.code, response.singleLine());
+                // pending.removeFirst();
+                // DO NOT remove it, the body sent state needs this message to assigned the next mail failed message that will
+                // the sendNext
+                // a reset will be sent to clear things out
                 sendNext();
                 state = BodySent;
             }
             else
-                sendNextRcpt(code, line);
+                sendNextRcpt();
             break;
         case SendingBody:
-            sendBody(code, line);
+            sendBody();
             break;
         case BodySent:
-			if ( pending.count() )
-			{
-				// if you removeFirst in RcpActpending/MailToSent on an error, and the queue is now empty, 
-				// you will get into this state and then crash because no check is done.  CHeck added but shouldnt
-				// be necessary since I commented out the removeFirst
-				if (code[0] != '2')
-				{
-                    emit q_func()->mailFailed(pending.first().first, code.toInt() );
-                    emit q_func()->mailFailed(pending.first().first, code.toInt(), line);
-				}
-				else
+            if ( pending.count() )
+            {
+                // if you removeFirst in RcpActpending/MailToSent on an error, and the queue is now empty,
+                // you will get into this state and then crash because no check is done.  CHeck added but shouldnt
+                // be necessary since I commented out the removeFirst
+                if (!response.hasGoodResponseCode())
+                {
+                    emit q_func()->mailFailed(pending.first().first, response.code );
+                    emit q_func()->mailFailed(pending.first().first, response.code, response.singleLine());
+                }
+                else
                     emit q_func()->mailSent(pending.first().first);
-	            pending.removeFirst();
-			}
+                pending.removeFirst();
+            }
             sendNext();
             break;
         case Resetting:
-            if (code[0] != '2') {
+            if (!response.hasGoodResponseCode()) {
                 emit q_func()->connectionFailed();
-                emit q_func()->connectionFailed( line );
+                emit q_func()->connectionFailed( response.singleLine() );
             }
             else {
                 state = Waiting;
@@ -327,66 +431,61 @@ void QxtSmtpPrivate::ehlo()
         address = addr.toString().toLatin1();
         break;
     }
-    socket->write("ehlo " + address + "\r\n");
+    smtpWrite("EHLO [" + address + "]\r\n");
     extensions.clear();
     state = EhloSent;
 }
 
-void QxtSmtpPrivate::parseEhlo(const QByteArray& code, bool cont, const QString& line)
+void QxtSmtpPrivate::parseEhlo()
 {
-    if (code != "250")
-    {
-        // error!
-        if (state != HeloSent)
+    while (true) {
+        if (response.code != 250)
         {
-            // maybe let's try HELO
-            socket->write("helo\r\n");
-            state = HeloSent;
+            // error!
+            if (state != HeloSent)
+            {
+                smtpWrite("HELO\r\n");
+                state = HeloSent;
+            }
+            else
+                break;
+            return;
+        }
+        if (state != EhloDone)
+            state = EhloDone;
+
+        if (response.domain().isEmpty())
+            break;
+
+        QList<QByteArray>::ConstIterator it = response.textLines.constBegin();
+        if (it == response.textLines.constEnd())
+            break;
+
+        while (++it != response.textLines.constEnd()) {
+            QString line = QString::fromLatin1(it->constData(), it->size());
+            extensions[line.section(' ', 0, 0).toUpper()] = line.section(' ', 1);
+        }
+
+        responseParser.usePipelining = extensions.contains("PIPELINING");
+        if (extensions.contains("STARTTLS") && !disableStartTLS)
+        {
+            startTLS();
         }
         else
         {
-            // nope
-            socket->write("QUIT\r\n");
-            socket->flush();
-            socket->disconnectFromHost();
+            authenticate();
         }
         return;
     }
-    else if (state != EhloGreetReceived)
-    {
-        if (!cont)
-        {
-            // greeting only, no extensions
-            state = EhloDone;
-        }
-        else
-        {
-            // greeting followed by extensions
-            state = EhloGreetReceived;
-            return;
-        }
-    }
-    else
-    {
-        extensions[line.section(' ', 0, 0).toUpper()] = line.section(' ', 1);
-        if (!cont)
-            state = EhloDone;
-    }
-    if (state != EhloDone) return;
-    if (extensions.contains(QStringLiteral("STARTTLS")) && !disableStartTLS)
-    {
-        startTLS();
-    }
-    else
-    {
-        authenticate();
-    }
+    smtpWrite("QUIT\r\n");
+    socket->flush();
+    socket->disconnectFromHost();
 }
 
 void QxtSmtpPrivate::startTLS()
 {
 #ifndef QT_NO_OPENSSL
-    socket->write("starttls\r\n");
+    smtpWrite("starttls\r\n");
     state = StartTLSSent;
 #else
     authenticate();
@@ -395,23 +494,23 @@ void QxtSmtpPrivate::startTLS()
 
 void QxtSmtpPrivate::authenticate()
 {
-    if (!extensions.contains(QStringLiteral("AUTH")) || username.isEmpty() || password.isEmpty())
+    if (!extensions.contains("AUTH") || username.isEmpty() || password.isEmpty())
     {
         state = Authenticated;
         emit q_func()->authenticated();
     }
     else
     {
-        QStringList auth = extensions[QStringLiteral("AUTH")].toUpper().split(' ', QString::SkipEmptyParts);
-        if (auth.contains(QStringLiteral("CRAM-MD5")) && (allowedAuthTypes & QxtSmtp::AuthCramMD5))
+        QStringList auth = extensions["AUTH"].toUpper().split(' ', QString::SkipEmptyParts);
+        if (auth.contains("CRAM-MD5") && (allowedAuthTypes & QxtSmtp::AuthCramMD5))
         {
             authCramMD5();
         }
-        else if (auth.contains(QStringLiteral("PLAIN")) && (allowedAuthTypes & QxtSmtp::AuthPlain))
+        else if (auth.contains("PLAIN") && (allowedAuthTypes & QxtSmtp::AuthPlain))
         {
             authPlain();
         }
-        else if (auth.contains(QStringLiteral("LOGIN")) && (allowedAuthTypes & QxtSmtp::AuthLogin))
+        else if (auth.contains("LOGIN") && (allowedAuthTypes & QxtSmtp::AuthLogin))
         {
             authLogin();
         }
@@ -423,11 +522,11 @@ void QxtSmtpPrivate::authenticate()
     }
 }
 
-void QxtSmtpPrivate::authCramMD5(const QByteArray& challenge)
+void QxtSmtpPrivate::authCramMD5()
 {
     if (state != AuthRequestSent)
     {
-        socket->write("auth cram-md5\r\n");
+        smtpWrite("auth cram-md5\r\n");
         authType = QxtSmtp::AuthCramMD5;
         state = AuthRequestSent;
     }
@@ -435,9 +534,9 @@ void QxtSmtpPrivate::authCramMD5(const QByteArray& challenge)
     {
         QxtHmac hmac(QCryptographicHash::Md5);
         hmac.setKey(password);
-        hmac.addData(QByteArray::fromBase64(challenge));
+        hmac.addData(QByteArray::fromBase64(response.singleLine()));
         QByteArray response = username + ' ' + hmac.result().toHex();
-        socket->write(response.toBase64() + "\r\n");
+        smtpWrite(response.toBase64() + "\r\n");
         state = AuthSent;
     }
 }
@@ -446,7 +545,7 @@ void QxtSmtpPrivate::authPlain()
 {
     if (state != AuthRequestSent)
     {
-        socket->write("auth plain\r\n");
+        smtpWrite("auth plain\r\n");
         authType = QxtSmtp::AuthPlain;
         state = AuthRequestSent;
     }
@@ -457,7 +556,7 @@ void QxtSmtpPrivate::authPlain()
         auth += username;
         auth += '\0';
         auth += password;
-        socket->write(auth.toBase64() + "\r\n");
+        smtpWrite(auth.toBase64() + "\r\n");
         state = AuthSent;
     }
 }
@@ -466,18 +565,18 @@ void QxtSmtpPrivate::authLogin()
 {
     if (state != AuthRequestSent && state != AuthUsernameSent)
     {
-        socket->write("auth login\r\n");
+        smtpWrite("auth login\r\n");
         authType = QxtSmtp::AuthLogin;
         state = AuthRequestSent;
     }
     else if (state == AuthRequestSent)
     {
-        socket->write(username.toBase64() + "\r\n");
+        smtpWrite(username.toBase64() + "\r\n");
         state = AuthUsernameSent;
     }
     else
     {
-        socket->write(password.toBase64() + "\r\n");
+        smtpWrite(password.toBase64() + "\r\n");
         state = AuthSent;
     }
 }
@@ -543,7 +642,7 @@ void QxtSmtpPrivate::sendNext()
 
     if(state != Waiting) {
         state = Resetting;
-        socket->write("rset\r\n");
+        smtpWrite("rset\r\n");
         return;
     }
     const QxtMailMessage& msg = pending.first().second;
@@ -563,12 +662,12 @@ void QxtSmtpPrivate::sendNext()
     // We explicitly use lowercase keywords because for some reason gmail
     // interprets any string starting with an uppercase R as a request
     // to renegotiate the SSL connection.
-    socket->write("mail from:<" + qxt_extract_address(msg.sender()) + ">\r\n");
-    if (extensions.contains(QStringLiteral("PIPELINING")))  // almost all do nowadays
+    smtpWrite("mail from:<" + qxt_extract_address(msg.sender()) + ">\r\n");
+    if (extensions.contains("PIPELINING"))  // almost all do nowadays
     {
         foreach(const QString& rcpt, recipients)
         {
-            socket->write("rcpt to:<" + qxt_extract_address(rcpt) + ">\r\n");
+            smtpWrite("rcpt to:<" + qxt_extract_address(rcpt) + ">\r\n");
         }
         state = RcptAckPending;
     }
@@ -578,23 +677,23 @@ void QxtSmtpPrivate::sendNext()
     }
 }
 
-void QxtSmtpPrivate::sendNextRcpt(const QByteArray& code, const QByteArray&line)
+void QxtSmtpPrivate::sendNextRcpt()
 {
     int messageID = pending.first().first;
     const QxtMailMessage& msg = pending.first().second;
 
-    if (code[0] != '2')
+    if (!response.hasGoodResponseCode())
     {
         // on failure, emit a warning signal
         if (!mailAck)
         {
             emit q_func()->senderRejected(messageID, msg.sender());
-            emit q_func()->senderRejected(messageID, msg.sender(), line );
+            emit q_func()->senderRejected(messageID, msg.sender(), response.singleLine());
         }
         else
         {
             emit q_func()->recipientRejected(messageID, msg.sender());
-            emit q_func()->recipientRejected(messageID, msg.sender(), line);
+            emit q_func()->recipientRejected(messageID, msg.sender(), response.singleLine());
         }
     }
     else if (!mailAck)
@@ -612,22 +711,22 @@ void QxtSmtpPrivate::sendNextRcpt(const QByteArray& code, const QByteArray&line)
         if (rcptAck == 0)
         {
             // no recipients were considered valid
-            emit q_func()->mailFailed(messageID, code.toInt() );
-            emit q_func()->mailFailed(messageID, code.toInt(), line);
+            emit q_func()->mailFailed(messageID, response.code );
+            emit q_func()->mailFailed(messageID, response.code, response.singleLine());
             pending.removeFirst();
             sendNext();
         }
         else
         {
             // at least one recipient was acknowledged, send mail body
-            socket->write("data\r\n");
+            smtpWrite("data\r\n");
             state = SendingBody;
         }
     }
     else if (state != RcptAckPending)
     {
         // send the next recipient unless we're only waiting on acks
-        socket->write("rcpt to:<" + qxt_extract_address(recipients[rcptNumber]) + ">\r\n");
+        smtpWrite("rcpt to:<" + qxt_extract_address(recipients[rcptNumber]) + ">\r\n");
         rcptNumber++;
     }
     else
@@ -637,21 +736,22 @@ void QxtSmtpPrivate::sendNextRcpt(const QByteArray& code, const QByteArray&line)
     }
 }
 
-void QxtSmtpPrivate::sendBody(const QByteArray& code, const QByteArray & line)
+void QxtSmtpPrivate::sendBody()
 {
     int messageID = pending.first().first;
     const QxtMailMessage& msg = pending.first().second;
 
-    if (code[0] != '3')
+    if (response.code != 354)
     {
-        emit q_func()->mailFailed(messageID, code.toInt() );
-        emit q_func()->mailFailed(messageID, code.toInt(), line);
+        emit q_func()->mailFailed(messageID, response.code );
+        emit q_func()->mailFailed(messageID, response.code, response.singleLine());
         pending.removeFirst();
         sendNext();
         return;
     }
 
-    socket->write(msg.rfc2822());
-    socket->write(".\r\n");
+    QByteArray data = msg.rfc2822();
+    smtpWrite(data);
+    smtpWrite(".\r\n");
     state = BodySent;
 }

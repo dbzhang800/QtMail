@@ -44,4 +44,8 @@
 #  define Q_MAIL_EXPORT
 #endif
 
+#if QT_VERSION < QT_VERSION_CHECK(5,0,0)
+# define QStringLiteral QLatin1String
+#endif
+
 #endif // MAILGLOBAL_H
