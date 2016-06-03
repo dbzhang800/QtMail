@@ -18,7 +18,8 @@ HEADERS += \
     $$PWD/mailpop3reply.h \
     $$PWD/mailpop3reply_p.h \
     $$PWD/mailpop3retrreply.h \
-    $$PWD/mailpop3statreply.h
+    $$PWD/mailpop3statreply.h \
+    $$PWD/mailtimezone.h
 
 SOURCES += \
     $$PWD/mailhmac.cpp \
@@ -26,4 +27,5 @@ SOURCES += \
     $$PWD/mailmessage.cpp \
     $$PWD/mailsmtp.cpp \
     $$PWD/mailpop3.cpp \
-    $$PWD/mailpop3reply.cpp
+    $$PWD/mailpop3reply.cpp \
+    $$PWD/mailtimezone.cpp

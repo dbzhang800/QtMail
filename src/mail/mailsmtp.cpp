@@ -39,9 +39,11 @@
 #include "mailsmtp.h"
 #include "mailsmtp_p.h"
 #include "mailhmac.h"
+#include "mailutility_p.h"
 #include <QStringList>
 #include <QTcpSocket>
 #include <QNetworkInterface>
+#include <QDateTime>
 #ifndef QT_NO_OPENSSL
 #    include <QSslSocket>
 #endif
@@ -207,7 +209,12 @@ int QxtSmtp::send(const QxtMailMessage& message)
 {
     int messageID = ++d_func()->nextID;
     d_func()->pending.append(qMakePair(messageID, message));
-    if (d_func()->state == QxtSmtpPrivate::Waiting)
+
+	QxtMailMessage& m = d_func()->pending.last().second;
+	if (!m.hasExtraHeader(QStringLiteral("Date")))
+		m.setExtraHeader(QStringLiteral("Date"),  dateTimeToRFC2822(QDateTime::currentDateTime()));
+
+	if (d_func()->state == QxtSmtpPrivate::Waiting)
         d_func()->sendNext();
     return messageID;
 }

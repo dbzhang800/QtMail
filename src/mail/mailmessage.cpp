@@ -40,6 +40,7 @@
 
 #include "mailmessage.h"
 #include "mailutility_p.h"
+#include "mailtimezone.h"
 #include <QTextCodec>
 #include <QUuid>
 #include <QDir>
@@ -943,4 +944,24 @@ bool isTextMedia(const QString& contentType)
          subtype == QLatin1String("x-shellscript"))) return true;
     if (type == QLatin1String("image") && subtype == QLatin1String("svg+xml")) return true;
     return false;
+}
+
+QString dateTimeToRFC2822(const QDateTime &dt)
+{
+    int tz = QxtTimeZone::offsetFromUtc();
+    QString ret = QLocale::c().toString(dt, "ddd, dd MMM yyyy HH:mm:ss");
+    if (tz) {
+        const char *tzs;
+        if (tz < 0) {
+            tz = -tz;
+            tzs = " -";
+        } else {
+            tzs = " +";
+        }
+        int h = tz / 60;
+        int m = tz - (h * 60);
+        QString tzf;
+        return ret + tzf.sprintf("%s%02d%02d", tzs, h, m);
+    }
+    return ret;
 }
