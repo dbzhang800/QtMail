@@ -51,6 +51,15 @@ public:
         Bcc
     };
 
+    enum MultipartType
+    {
+        Mixed,
+        Alternative,
+        Digest,
+        Parallel,
+        Related // rfc 2387
+    };
+
     QxtMailMessage();
     QxtMailMessage(const QxtMailMessage& other);
     QxtMailMessage(const QString& sender, const QString& recipient);
@@ -82,6 +91,7 @@ public:
     QxtMailAttachment attachment(const QString& filename) const;
     void addAttachment(const QString& filename, const QxtMailAttachment& attach);
     void removeAttachment(const QString& filename);
+    void setMultipartType(MultipartType);
 
     void setWordWrapLimit(int limit);
     void setWordWrapPreserveStartSpaces(bool state);

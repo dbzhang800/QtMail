@@ -53,16 +53,18 @@
 
 struct QxtMailMessagePrivate : public QSharedData
 {
-    QxtMailMessagePrivate() {}
+    QxtMailMessagePrivate() : multipartType(QxtMailMessage::Mixed), wordWrapLimit(78), preserveStartSpaces(false) {}
     QxtMailMessagePrivate(const QxtMailMessagePrivate& other)
             : QSharedData(other), rcptTo(other.rcptTo), rcptCc(other.rcptCc), rcptBcc(other.rcptBcc),
             subject(other.subject), body(other.body), sender(other.sender),
             extraHeaders(other.extraHeaders), attachments(other.attachments),
-            wordWrapLimit(78), preserveStartSpaces(false) {}
+            multipartType(other.multipartType), wordWrapLimit(other.wordWrapLimit),
+            preserveStartSpaces(other.preserveStartSpaces) {}
     QStringList rcptTo, rcptCc, rcptBcc;
     QString subject, body, sender;
     QHash<QString, QString> extraHeaders;
     QHash<QString, QxtMailAttachment> attachments;
+    QxtMailMessage::MultipartType multipartType;
     mutable QByteArray boundary;
     int wordWrapLimit;
     bool preserveStartSpaces;
@@ -198,7 +200,21 @@ bool QxtMailMessage::hasExtraHeader(const QString& key) const
 
 void QxtMailMessage::setExtraHeader(const QString& key, const QString& value)
 {
-    qxt_d->extraHeaders[key.toLower()] = value;
+#if 0
+    if (key.compare(QStringLiteral("Content-Type"), Qt::CaseInsensitive) == 0 &&
+            value.contains(QStringLiteral("multipart/")))
+    {
+        QRegExp re(QStringLiteral("boundary=([^ ;\r]+)"));
+        if (re.indexIn(value) != -1)
+            qxt_d->boundary = re.capturedTexts()[1].toLatin1();
+        else {
+            qxt_d->boundary = qxt_gen_boundary();
+            qxt_d->extraHeaders[key.toLower()] = value + "; boundary=" + qxt_d->boundary;
+        }
+    }
+    else
+#endif
+        qxt_d->extraHeaders[key.toLower()] = value;
 }
 
 void QxtMailMessage::setExtraHeaders(const QHash<QString, QString>& a)
@@ -207,7 +223,7 @@ void QxtMailMessage::setExtraHeaders(const QHash<QString, QString>& a)
     headers.clear();
     foreach(const QString& key, a.keys())
     {
-        headers[key.toLower()] = a[key];
+        setExtraHeader(key, a[key]);
     }
 }
 
@@ -247,6 +263,11 @@ void QxtMailMessage::addAttachment(const QString& filename, const QxtMailAttachm
 void QxtMailMessage::removeAttachment(const QString& filename)
 {
     qxt_d->attachments.remove(filename);
+}
+
+void QxtMailMessage::setMultipartType(QxtMailMessage::MultipartType mpt)
+{
+    qxt_d->multipartType = mpt;
 }
 
 /*!
@@ -403,13 +424,23 @@ QByteArray QxtMailMessage::rfc2822() const
     if (attach.count())
     {
         if (qxt_d->boundary.isEmpty())
-            qxt_d->boundary = QUuid::createUuid().toString().toLatin1().replace("{", "").replace("}", "");
+            qxt_d->boundary = qxt_gen_boundary();
         if (!hasExtraHeader(QStringLiteral("MIME-Version")))
             rv += "MIME-Version: 1.0\r\n";
-        if (!hasExtraHeader(QStringLiteral("Content-Type")))
-            rv += "Content-Type: multipart/mixed; boundary=" + qxt_d->boundary + "\r\n";
+        if (!hasExtraHeader(QStringLiteral("Content-Type"))) {
+            static QMap<MultipartType, QByteArray> mptMap;
+            if (mptMap.isEmpty()) {
+                mptMap.insert(Mixed, "mixed");
+                mptMap.insert(Alternative, "alternative");
+                mptMap.insert(Digest, "digest");
+                mptMap.insert(Parallel, "parallel");
+                mptMap.insert(Related, "related");
+            }
+
+            rv += "Content-Type: multipart/"+mptMap[qxt_d->multipartType]+"; boundary=" + qxt_d->boundary + "\r\n";
+        }
     }
-    else if (!bodyIsAscii && !hasExtraHeader(QStringLiteral("Content-Transfer-Encoding")))
+    else if (body().size() && !bodyIsAscii && !hasExtraHeader(QStringLiteral("Content-Transfer-Encoding")))
     {
         if (!useQuotedPrintable)
         {
@@ -439,135 +470,142 @@ QByteArray QxtMailMessage::rfc2822() const
     {
         // we're going to have attachments, so output the lead-in for the message body
         rv += "This is a message with multiple parts in MIME format.\r\n";
-        rv += "--" + qxt_d->boundary + "\r\nContent-Type: ";
-        if (hasExtraHeader(QStringLiteral("Content-Type")))
-            rv += extraHeader(QStringLiteral("Content-Type")).toLatin1() + "\r\n";
-        else
-            rv += "text/plain; charset=UTF-8\r\n";
-        if (hasExtraHeader(QStringLiteral("Content-Transfer-Encoding")))
-        {
-            rv += "Content-Transfer-Encoding: " + extraHeader(QStringLiteral("Content-Transfer-Encoding")).toLatin1() + "\r\n";
-        }
-        else if (!bodyIsAscii)
-        {
-            if (!useQuotedPrintable)
-            {
-                // base64
-                rv += "Content-Transfer-Encoding: base64\r\n";
-            }
-            else
-            {
-                // quoted-printable
-                rv += "Content-Transfer-Encoding: quoted-printable\r\n";
-            }
-        }
-        rv += "\r\n";
     }
 
-    if (bodyIsAscii)
-    {
-        QByteArray b = latin1->fromUnicode(body());
-        int len = b.length();
-        QByteArray line;
-        QByteArray word;
-        QByteArray spaces;
-        QByteArray startSpaces;
-        for (int i = 0; i <= len; i++)
+    if (body().size()) {
+        if (attach.count())
         {
-            char ignoredChar = 0;
-            if (i != len) {
-                ignoredChar = b[i] == '\n'? '\r' : b[i] == '\r'? '\n' : 0;
+            // we're going to have attachments, so output the lead-in for the message body
+            rv += "--" + qxt_d->boundary + "\r\nContent-Type: ";
+            if (hasExtraHeader(QStringLiteral("Content-Type")))
+                rv += extraHeader(QStringLiteral("Content-Type")).toLatin1() + "\r\n";
+            else
+                rv += "text/plain; charset=UTF-8\r\n";
+            if (hasExtraHeader(QStringLiteral("Content-Transfer-Encoding")))
+            {
+                rv += "Content-Transfer-Encoding: " + extraHeader(QStringLiteral("Content-Transfer-Encoding")).toLatin1() + "\r\n";
             }
-            if (!(ignoredChar || (i == len) || (b[i] == ' ') || (b[i] == '\t'))) {
-                // the char is part of word
-                if (word.isEmpty()) { // start of new word / end of spaces
-                    if (line.isEmpty()) {
-                        startSpaces = spaces;
-                    }
+            else if (!bodyIsAscii)
+            {
+                if (!useQuotedPrintable)
+                {
+                    // base64
+                    rv += "Content-Transfer-Encoding: base64\r\n";
                 }
-                word += b[i];
-                continue;
+                else
+                {
+                    // quoted-printable
+                    rv += "Content-Transfer-Encoding: quoted-printable\r\n";
+                }
             }
+            rv += "\r\n";
+        }
 
-            // space char, so end of word or continuous spaces
-            if (!word.isEmpty()) { // start of new space area / end of word
-                if (line.length() + spaces.length() +
-                                        word.length() > qxt_d->wordWrapLimit) {
-                    // have to wrap word to next line
+        if (bodyIsAscii)
+        {
+            QByteArray b = latin1->fromUnicode(body());
+            int len = b.length();
+            QByteArray line;
+            QByteArray word;
+            QByteArray spaces;
+            QByteArray startSpaces;
+            for (int i = 0; i <= len; i++)
+            {
+                char ignoredChar = 0;
+                if (i != len) {
+                    ignoredChar = b[i] == '\n'? '\r' : b[i] == '\r'? '\n' : 0;
+                }
+                if (!(ignoredChar || (i == len) || (b[i] == ' ') || (b[i] == '\t'))) {
+                    // the char is part of word
+                    if (word.isEmpty()) { // start of new word / end of spaces
+                        if (line.isEmpty()) {
+                            startSpaces = spaces;
+                        }
+                    }
+                    word += b[i];
+                    continue;
+                }
+
+                // space char, so end of word or continuous spaces
+                if (!word.isEmpty()) { // start of new space area / end of word
+                    if (line.length() + spaces.length() +
+                                            word.length() > qxt_d->wordWrapLimit) {
+                        // have to wrap word to next line
+                        if(line[0] == '.')
+                            rv += ".";
+                        rv += line + "\r\n";
+                        if (qxt_d->preserveStartSpaces) {
+                            line = startSpaces + word;
+                        } else {
+                            line = word;
+                        }
+                    } else { // no wrap required
+                        line += spaces + word;
+                    }
+                    word.clear();
+                    spaces.clear();
+                }
+
+                if (ignoredChar || i == len) { // new line or eof
+                    // trailing `spaces` are ignored here
                     if(line[0] == '.')
                         rv += ".";
                     rv += line + "\r\n";
-                    if (qxt_d->preserveStartSpaces) {
-                        line = startSpaces + word;
-                    } else {
-                        line = word;
-                    }
-                } else { // no wrap required
-                    line += spaces + word;
+                    line.clear();
+                    startSpaces.clear();
+                    spaces.clear();
+                } else {
+                    spaces += b[i];
                 }
-                word.clear();
-                spaces.clear();
-            }
-
-            if (ignoredChar || i == len) { // new line or eof
-                // trailing `spaces` are ignored here
-                if(line[0] == '.')
-                    rv += ".";
-                rv += line + "\r\n";
-                line.clear();
-                startSpaces.clear();
-                spaces.clear();
-            } else {
-                spaces += b[i];
             }
         }
-    }
-    else if (useQuotedPrintable)
-    {
-        QByteArray b = body().toUtf8();
-        int ct = b.length();
-        QByteArray line;
-        for (int i = 0; i < ct; i++)
+        else if (useQuotedPrintable)
         {
-            if(b[i] == '\n' || b[i] == '\r')
+            QByteArray b = body().toUtf8();
+            int ct = b.length();
+            QByteArray line;
+            for (int i = 0; i < ct; i++)
             {
-                if(line[0] == '.')
-                    rv += ".";
-                rv += line + "\r\n";
-                line = "";
-                if ((b[i+1] == '\n' || b[i+1] == '\r') && b[i] != b[i+1])
+                if(b[i] == '\n' || b[i] == '\r')
                 {
-                    // If we're looking at a CRLF pair, skip the second half
-                    i++;
+                    if(line[0] == '.')
+                        rv += ".";
+                    rv += line + "\r\n";
+                    line = "";
+                    if ((b[i+1] == '\n' || b[i+1] == '\r') && b[i] != b[i+1])
+                    {
+                        // If we're looking at a CRLF pair, skip the second half
+                        i++;
+                    }
+                }
+                else if (line.length() > 74)
+                {
+                    rv += line + "=\r\n";
+                    line = "";
+                }
+                if (MUST_QP(b[i]))
+                {
+                    line += "=" + b.mid(i, 1).toHex().toUpper();
+                }
+                else
+                {
+                    line += b[i];
                 }
             }
-            else if (line.length() > 74)
-            {
-                rv += line + "=\r\n";
-                line = "";
-            }
-            if (MUST_QP(b[i]))
-            {
-                line += "=" + b.mid(i, 1).toHex().toUpper();
-            }
-            else
-            {
-                line += b[i];
+            if(!line.isEmpty()) {
+                if(line[0] == '.')
+                    rv += ".";
+                rv += line + "\r\n";
             }
         }
-        if(!line.isEmpty()) {
-            if(line[0] == '.')
-                rv += ".";
-            rv += line + "\r\n";
-        }
-    }
-    else /* base64 */
-    {
-        QByteArray b = body().toUtf8().toBase64();
-        int ct = b.length();
-        for (int i = 0; i < ct; i += 78)
+        else /* base64 */
         {
-            rv += b.mid(i, 78) + "\r\n";
+            QByteArray b = body().toUtf8().toBase64();
+            int ct = b.length();
+            for (int i = 0; i < ct; i += 78)
+            {
+                rv += b.mid(i, 78) + "\r\n";
+            }
         }
     }
 
@@ -576,7 +614,8 @@ QByteArray QxtMailMessage::rfc2822() const
         foreach(const QString& filename, attach.keys())
         {
             rv += "--" + qxt_d->boundary + "\r\n";
-            rv += qxt_fold_mime_header(QStringLiteral("Content-Disposition"), QDir(filename).dirName(), latin1, "attachment; filename=");
+            if (qxt_d->multipartType != Alternative && !attach[filename].isMultipart()) // REVIEW: may be other types too
+                rv += qxt_fold_mime_header(QStringLiteral("Content-Disposition"), QDir(filename).dirName(), latin1, "attachment; filename=");
             rv += attach[filename].mimeData();
         }
         rv += "--" + qxt_d->boundary + "--\r\n";
@@ -964,4 +1003,9 @@ QString dateTimeToRFC2822(const QDateTime &dt)
         return ret + tzf.sprintf("%s%02d%02d", tzs, h, m);
     }
     return ret;
+}
+
+QByteArray qxt_gen_boundary()
+{
+    return QUuid::createUuid().toString().toLatin1().replace("{", "").replace("}", "");
 }

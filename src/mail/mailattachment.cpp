@@ -50,6 +50,8 @@ class QxtMailAttachmentPrivate : public QSharedData
 {
 public:
     QHash<QString, QString> extraHeaders;
+    QByteArray boundary; // in case of embedded multipart
+    QHash<QString, QxtMailAttachment> attachments; // in case of embedded multipart
     QString contentType;
     // those two members are mutable because they may change in the const rawData() method of QxtMailAttachment,
     // while caching the raw data for the attachment if needed.
@@ -146,6 +148,15 @@ QString QxtMailAttachment::contentType() const
 void QxtMailAttachment::setContentType(const QString& contentType)
 {
     qxt_d->contentType = contentType;
+    if (contentType.startsWith("multipart", Qt::CaseInsensitive)) {
+        QRegExp re(QStringLiteral("boundary=([^ ;\\r]+)"));
+        if (re.indexIn(contentType) != -1)
+            qxt_d->boundary = re.capturedTexts()[1].toLatin1();
+        else {
+            qxt_d->boundary = qxt_gen_boundary();
+            qxt_d->contentType += (QStringLiteral("; boundary=") + qxt_d->boundary);
+        }
+    }
 }
 
 QHash<QString, QString> QxtMailAttachment::extraHeaders() const
@@ -165,16 +176,18 @@ bool QxtMailAttachment::hasExtraHeader(const QString& key) const
 
 void QxtMailAttachment::setExtraHeader(const QString& key, const QString& value)
 {
-    qxt_d->extraHeaders[key.toLower()] = value;
+    if (key.compare(QStringLiteral("Content-Type"), Qt::CaseInsensitive) == 0)
+        setContentType(value);
+    else
+        qxt_d->extraHeaders[key.toLower()] = value;
 }
 
 void QxtMailAttachment::setExtraHeaders(const QHash<QString, QString>& a)
 {
-    QHash<QString, QString>& headers = qxt_d->extraHeaders;
-    headers.clear();
+    qxt_d->extraHeaders.clear();
     foreach(const QString& key, a.keys())
     {
-        headers[key.toLower()] = a[key];
+        setExtraHeader(key, a[key]);
     }
 }
 
@@ -183,10 +196,57 @@ void QxtMailAttachment::removeExtraHeader(const QString& key)
     qxt_d->extraHeaders.remove(key.toLower());
 }
 
+QHash<QString, QxtMailAttachment> QxtMailAttachment::attachments() const
+{
+    return qxt_d->attachments;
+}
+
+QxtMailAttachment QxtMailAttachment::attachment(const QString& filename) const
+{
+    return qxt_d->attachments[filename];
+}
+
+void QxtMailAttachment::addAttachment(const QString& filename, const QxtMailAttachment& attach)
+{
+    if (qxt_d->attachments.contains(filename))
+    {
+        qWarning() << "QxtMailMessage::addAttachment: " << filename << " already in use";
+        int i = 1;
+        while (qxt_d->attachments.contains(filename + QLatin1Char('.') + QString::number(i)))
+        {
+            i++;
+        }
+        qxt_d->attachments[filename+QLatin1Char('.')+QString::number(i)] = attach;
+    }
+    else
+    {
+        qxt_d->attachments[filename] = attach;
+    }
+}
+
+void QxtMailAttachment::removeAttachment(const QString& filename)
+{
+    qxt_d->attachments.remove(filename);
+}
+
 QByteArray QxtMailAttachment::mimeData()
 {
+    bool isMultipart = false;
     QTextCodec* latin1 = QTextCodec::codecForName("latin1");
-    QByteArray rv = "Content-Type: " + qxt_d->contentType.toLatin1() + "\r\nContent-Transfer-Encoding: base64\r\n";
+
+    if (qxt_d->attachments.count()) {
+        if (!qxt_d->contentType.startsWith("multipart/", Qt::CaseInsensitive))
+            setExtraHeader(QStringLiteral("Content-Type"), QStringLiteral("multipart/mixed"));
+    }
+
+    QByteArray rv = "Content-Type: " + qxt_d->contentType.toLatin1() + "\r\n";
+    if (qxt_d->contentType.startsWith("multipart/", Qt::CaseInsensitive)) {
+        isMultipart = true;
+    }
+    else {
+        rv += "Content-Transfer-Encoding: base64\r\n";
+    }
+
     foreach(const QString& r, qxt_d->extraHeaders.keys())
     {
         rv += qxt_fold_mime_header(r, extraHeader(r), latin1);
@@ -194,10 +254,25 @@ QByteArray QxtMailAttachment::mimeData()
     rv += "\r\n";
 
     const QByteArray& d = rawData();
-    for (int pos = 0; pos < d.length(); pos += 57)
+    int chars = isMultipart? 73 : 57; // multipart preamble supposed to be 7bit latin1
+    for (int pos = 0; pos < d.length(); pos += chars)
     {
-        rv += d.mid(pos, 57).toBase64() + "\r\n";
+        if (isMultipart) {
+            rv += d.mid(pos, chars) + "\r\n";
+        } else {
+            rv += d.mid(pos, chars).toBase64() + "\r\n";
+        }
     }
+
+    if (isMultipart) {
+        QMutableHashIterator<QString, QxtMailAttachment> it(qxt_d->attachments);
+        while (it.hasNext()) {
+            rv += "--" + qxt_d->boundary + "\r\n";
+            rv += it.next().value().mimeData();
+        }
+        rv += "--" + qxt_d->boundary + "--\r\n";
+    }
+
     return rv;
 }
 
@@ -242,6 +317,11 @@ const QByteArray& QxtMailAttachment::rawData() const
 bool QxtMailAttachment::isText() const
 {
     return isTextMedia(contentType());
+}
+
+bool QxtMailAttachment::isMultipart() const
+{
+    return qxt_d->attachments.count() || qxt_d->contentType.startsWith("multipart/", Qt::CaseInsensitive);
 }
 
 QxtMailAttachment QxtMailAttachment::fromFile(const QString& filename)
