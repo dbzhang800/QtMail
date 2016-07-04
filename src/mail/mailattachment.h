@@ -39,6 +39,7 @@
 #include <QByteArray>
 #include <QMetaType>
 #include <QSharedDataPointer>
+#include <QIODevice>
 
 class QxtMailAttachmentPrivate;
 class Q_MAIL_EXPORT QxtMailAttachment
