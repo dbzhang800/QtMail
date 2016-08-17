@@ -37,5 +37,7 @@
 QByteArray qxt_fold_mime_header(const QString& key, const QString& value, QTextCodec* latin1,
                                 const QByteArray& prefix = QByteArray());
 bool isTextMedia(const QString& contentType);
+QString dateTimeToRFC2822(const QDateTime &dt);
+QByteArray qxt_gen_boundary();
 
 #endif // MAILUTILITY_P_H

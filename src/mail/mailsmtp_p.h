@@ -37,6 +37,45 @@
 #include <QString>
 #include <QList>
 #include <QPair>
+#include <QQueue>
+
+class QxtSmtpResponse
+{
+public:
+    inline QxtSmtpResponse() : code(0) { }
+
+    int code;
+    QList<QByteArray> textLines;
+
+    QByteArray domain() const;
+    inline bool hasGoodResponseCode() const { return code >= 200 && code < 300; }
+    QByteArray singleLine() const;
+};
+
+class QxtSmtpResponseParser
+{
+public:
+    /* in case of multiline response but not pipelining */
+    enum State {
+        StateStart,
+        StateFirst,
+        StateNext
+    };
+
+    bool usePipelining;
+    State state;
+    int lastIndex;
+    QByteArray buffer;
+    QxtSmtpResponse currentResponse;
+    QQueue<QxtSmtpResponse> responses;
+
+    inline QxtSmtpResponseParser() :
+        usePipelining(false), state(StateFirst), lastIndex(0) {}
+    bool feed(const QByteArray &data);  // return false on parse error
+    inline bool hasResponse() const { return !responses.isEmpty(); }
+    inline QxtSmtpResponse takeResponse() { return responses.dequeue(); }
+};
+
 
 class QxtSmtpPrivate : public QObject
 {
@@ -52,7 +91,6 @@ public:
         Disconnected,
         StartState,
         EhloSent,
-        EhloGreetReceived,
         EhloExtensionsReceived,
         EhloDone,
         HeloSent,
@@ -73,12 +111,14 @@ public:
     SmtpState state; // rather then an int use the enum.  makes sure invalid states are entered at compile time, and makes debugging easier
     QxtSmtp::AuthType authType;
     int allowedAuthTypes;
-    QByteArray buffer, username, password;
+    QByteArray username, password;
+    QxtSmtpResponseParser responseParser;
     QHash<QString, QString> extensions;
     QList<QPair<int, QxtMailMessage> > pending;
     QStringList recipients;
     int nextID, rcptNumber, rcptAck;
     bool mailAck;
+    QxtSmtpResponse response;
 
 #ifndef QT_NO_OPENSSL
     QSslSocket* socket;
@@ -86,16 +126,16 @@ public:
     QTcpSocket* socket;
 #endif
 
-    void parseEhlo(const QByteArray& code, bool cont, const QString& line);
+    void parseEhlo();
     void startTLS();
     void authenticate();
 
-    void authCramMD5(const QByteArray& challenge = QByteArray());
+    void authCramMD5();
     void authPlain();
     void authLogin();
 
-    void sendNextRcpt(const QByteArray& code, const QByteArray & line);
-    void sendBody(const QByteArray& code, const QByteArray & line);
+    void sendNextRcpt();
+    void sendBody();
 
 public slots:
     void socketError(QAbstractSocket::SocketError err);
