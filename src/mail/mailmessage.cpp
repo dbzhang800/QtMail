@@ -63,7 +63,7 @@ struct QxtMailMessagePrivate : public QSharedData
     QStringList rcptTo, rcptCc, rcptBcc;
     QString subject, body, sender;
     QHash<QString, QString> extraHeaders;
-    QHash<QString, QxtMailAttachment> attachments;
+    QMap<QString, QxtMailAttachment> attachments; // QMap because order makes sense
     QxtMailMessage::MultipartType multipartType;
     mutable QByteArray boundary;
     int wordWrapLimit;
@@ -232,7 +232,7 @@ void QxtMailMessage::removeExtraHeader(const QString& key)
     qxt_d->extraHeaders.remove(key.toLower());
 }
 
-QHash<QString, QxtMailAttachment> QxtMailMessage::attachments() const
+QMap<QString, QxtMailAttachment> QxtMailMessage::attachments() const
 {
     return qxt_d->attachments;
 }
@@ -376,7 +376,7 @@ QByteArray QxtMailMessage::rfc2822() const
     QTextCodec* latin1 = QTextCodec::codecForName("latin1");
     bool bodyIsAscii = latin1->canEncode(body()) && !useQuotedPrintable && !useBase64;
 
-    QHash<QString, QxtMailAttachment> attach = attachments();
+    QMap<QString, QxtMailAttachment> attach = attachments();
     QByteArray rv;
 
     if (!sender().isEmpty() && !hasExtraHeader(QStringLiteral("From")))

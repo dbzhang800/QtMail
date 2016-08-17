@@ -87,7 +87,7 @@ public:
     void setExtraHeaders(const QHash<QString, QString>&);
     void removeExtraHeader(const QString& key);
 
-    QHash<QString, QxtMailAttachment> attachments() const;
+    QMap<QString, QxtMailAttachment> attachments() const;
     QxtMailAttachment attachment(const QString& filename) const;
     void addAttachment(const QString& filename, const QxtMailAttachment& attach);
     void removeAttachment(const QString& filename);

@@ -51,7 +51,7 @@ class QxtMailAttachmentPrivate : public QSharedData
 public:
     QHash<QString, QString> extraHeaders;
     QByteArray boundary; // in case of embedded multipart
-    QHash<QString, QxtMailAttachment> attachments; // in case of embedded multipart
+    QMap<QString, QxtMailAttachment> attachments; // in case of embedded multipart.  QMap because order makes sense
     QString contentType;
     // those two members are mutable because they may change in the const rawData() method of QxtMailAttachment,
     // while caching the raw data for the attachment if needed.
@@ -196,7 +196,7 @@ void QxtMailAttachment::removeExtraHeader(const QString& key)
     qxt_d->extraHeaders.remove(key.toLower());
 }
 
-QHash<QString, QxtMailAttachment> QxtMailAttachment::attachments() const
+QMap<QString, QxtMailAttachment> QxtMailAttachment::attachments() const
 {
     return qxt_d->attachments;
 }
@@ -265,7 +265,7 @@ QByteArray QxtMailAttachment::mimeData()
     }
 
     if (isMultipart) {
-        QMutableHashIterator<QString, QxtMailAttachment> it(qxt_d->attachments);
+        QMutableMapIterator<QString, QxtMailAttachment> it(qxt_d->attachments);
         while (it.hasNext()) {
             rv += "--" + qxt_d->boundary + "\r\n";
             rv += it.next().value().mimeData();
